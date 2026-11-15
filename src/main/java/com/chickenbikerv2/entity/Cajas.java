@@ -17,9 +17,7 @@ public class Cajas {
     @Column(name = "nombre_caja")
     private String nombreCaja;
 
-    @Column(name = "descripcion_caja")
-    private String descripcionCaja;
 
-    @Column(name = "activo_caja")
-    private int activoCaja;
+    @Column(name = "activo_caja" )
+    private Byte activoCaja;
 }

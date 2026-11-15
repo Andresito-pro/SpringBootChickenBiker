@@ -19,7 +19,5 @@ public class Roles {
     @Column(name="nombre_rol")
     private String nombreRol;
 
-    @Column(name="descripcion_rol")
-    private String descripcionRol;
 }
 

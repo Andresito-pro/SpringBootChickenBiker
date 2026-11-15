@@ -17,9 +17,7 @@ public class EstadosMesas {
     @Column(name = "nombre_estado_mesa")
     private String nombreEstadoMesa;
 
-    @Column(name = "descripcion_estado_mesa")
-    private String descripcionEstadoMesa;
 
     @Column(name = "activo_estado_mesa")
-    private int activoEstadoMesa;
+    private Byte activoEstadoMesa;
 }

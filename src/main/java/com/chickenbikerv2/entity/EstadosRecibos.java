@@ -17,9 +17,6 @@ public class EstadosRecibos {
     @Column(name = "nombre_estado_recibo")
     private String nombreEstadoRecibo;
 
-    @Column(name = "descripcion_estado_recibo")
-    private String descripcionEstadoRecibo;
-
     @Column(name = "activo_estado_recibo")
-    private int activoEstadoRecibo;
+    private Byte activoEstadoRecibo;
 }

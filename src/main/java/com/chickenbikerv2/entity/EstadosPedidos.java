@@ -17,9 +17,7 @@ public class EstadosPedidos {
     @Column(name = "nombre_estado_pedido")
     private String nombreEstadoPedido;
 
-    @Column(name = "descripcion_estado_pedido")
-    private String descripcionEstadoPedido;
 
     @Column(name = "activo_estado_pedido")
-    private int activoEstadoPedido;
+    private Byte activoEstadoPedido;
 }

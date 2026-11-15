@@ -17,6 +17,4 @@ public class CategoriasProductos {
     @Column(name = "nombre_categoria")
     private String nombreCategoria;
 
-    @Column(name = "descripcion_categoria")
-    private String descripcionCategoria;
 }

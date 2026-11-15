@@ -17,6 +17,4 @@ public class TiposMovimientos {
     @Column(name = "nombre_tipo_movimiento")
     private String nombreTipoMovimiento;
 
-    @Column(name = "descripcion_tipo_movimiento")
-    private String descripcionTipoMovimiento;
 }

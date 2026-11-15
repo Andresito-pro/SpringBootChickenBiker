@@ -18,5 +18,5 @@ public class MetodosPago {
     private String nombreMetodo;
 
     @Column(name = "activo_metodo")
-    private int activoMetodo;
+    private Byte activoMetodo;
 }

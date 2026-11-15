@@ -17,6 +17,4 @@ public class Permisos {
     @Column(name = "nombre_permiso")
     private String nombrePermiso;
 
-    @Column(name = "descripcion_permiso")
-    private String descripcionPermiso;
 }
