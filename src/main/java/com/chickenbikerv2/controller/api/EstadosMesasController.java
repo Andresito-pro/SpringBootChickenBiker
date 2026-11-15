@@ -1,4 +1,4 @@
-package com.chickenbikerv2.controller;
+package com.chickenbikerv2.controller.api;
 
 import com.chickenbikerv2.entity.EstadosMesas;
 import com.chickenbikerv2.service.EstadosMesasService;
@@ -20,7 +20,7 @@ public class EstadosMesasController {
         this.estadosMesasService = estadosMesasService;
     }
 
-    @GetMapping("/listar")
+    @GetMapping("/listarRoles")
     public List<EstadosMesas> listar() {
         return estadosMesasService.listar();
     }

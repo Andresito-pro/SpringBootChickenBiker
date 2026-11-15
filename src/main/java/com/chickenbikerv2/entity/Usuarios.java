@@ -43,7 +43,7 @@ public class Usuarios {
     private LocalDate fechaVencimiento;
 
     @Column(name = "autorizacion_datos")
-    private int autorizacionDatos;
+    private Byte autorizacionDatos;
 
     @Column(name = "roles_id_roles")
     private int rolesIdRoles;

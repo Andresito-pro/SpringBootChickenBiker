@@ -16,9 +16,11 @@ public class RolesService {
         this.rolesRepository = rolesRepository;
     }
 
-    public List<Roles> listar() {
+    public List<Roles> listarRoles() {
         return rolesRepository.findAll();
     }
+
+
 
     public Optional<Roles> buscarPorId(Integer id) {
         return rolesRepository.findById(id);
@@ -31,4 +33,6 @@ public class RolesService {
     public void eliminar(Integer id) {
         rolesRepository.deleteById(id);
     }
+
+    public void insertar(Roles rol) { guardar(rol); }
 }

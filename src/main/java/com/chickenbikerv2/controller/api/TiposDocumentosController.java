@@ -1,4 +1,4 @@
-package com.chickenbikerv2.controller;
+package com.chickenbikerv2.controller.api;
 
 import com.chickenbikerv2.entity.TiposDocumentos;
 import com.chickenbikerv2.service.TiposDocumentosService;
@@ -20,7 +20,7 @@ public class TiposDocumentosController {
         this.tiposDocumentosService = tiposDocumentosService;
     }
 
-    @GetMapping("/listar")
+    @GetMapping("/listarRoles")
     public List<TiposDocumentos> listar() {
         return tiposDocumentosService.listar();
     }

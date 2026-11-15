@@ -1,4 +1,4 @@
-package com.chickenbikerv2.controller;
+package com.chickenbikerv2.controller.api;
 
 import com.chickenbikerv2.entity.TiposMovimientos;
 import com.chickenbikerv2.service.TiposMovimientosService;
@@ -20,7 +20,7 @@ public class TiposMovimientosController {
         this.tiposMovimientosService = tiposMovimientosService;
     }
 
-    @GetMapping("/listar")
+    @GetMapping("/listarRoles")
     public List<TiposMovimientos> listar() {
         return tiposMovimientosService.listar();
     }

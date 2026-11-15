@@ -1,4 +1,4 @@
-package com.chickenbikerv2.controller;
+package com.chickenbikerv2.controller.api;
 
 import com.chickenbikerv2.entity.MetodosPago;
 import com.chickenbikerv2.service.MetodosPagoService;
@@ -20,7 +20,7 @@ public class MetodosPagoController {
         this.metodosPagoService = metodosPagoService;
     }
 
-    @GetMapping("/listar")
+    @GetMapping("/listarRoles")
     public List<MetodosPago> listar() {
         return metodosPagoService.listar();
     }

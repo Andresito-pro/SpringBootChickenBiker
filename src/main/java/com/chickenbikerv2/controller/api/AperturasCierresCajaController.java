@@ -1,4 +1,4 @@
-package com.chickenbikerv2.controller;
+package com.chickenbikerv2.controller.api;
 
 import com.chickenbikerv2.entity.AperturasCierresCaja;
 import com.chickenbikerv2.service.AperturasCierresCajaService;
@@ -20,7 +20,7 @@ public class AperturasCierresCajaController {
         this.aperturasCierresCajaService = aperturasCierresCajaService;
     }
 
-    @GetMapping("/listar")
+    @GetMapping("/listarRoles")
     public List<AperturasCierresCaja> listar() {
         return aperturasCierresCajaService.listar();
     }

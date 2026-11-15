@@ -1,4 +1,4 @@
-package com.chickenbikerv2.controller;
+package com.chickenbikerv2.controller.api;
 
 import com.chickenbikerv2.entity.Usuarios;
 import com.chickenbikerv2.service.UsuariosService;
@@ -20,7 +20,7 @@ public class UsuariosController {
         this.usuariosService = usuariosService;
     }
 
-    @GetMapping("/listar")
+    @GetMapping("/listarRoles")
     public List<Usuarios> listar() {
         return usuariosService.listar();
     }

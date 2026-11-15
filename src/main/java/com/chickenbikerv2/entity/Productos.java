@@ -25,7 +25,7 @@ public class Productos {
     private BigDecimal precioVenta;
 
     @Column(name = "activo_producto")
-    private int activoProducto;
+    private Byte activoProducto;
 
     @Column(name = "categoria_producto_id_categoria_producto")
     private int categoriaProductoIdCategoriaProducto;

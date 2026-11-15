@@ -1,4 +1,4 @@
-package com.chickenbikerv2.controller;
+package com.chickenbikerv2.controller.api;
 
 import com.chickenbikerv2.entity.PermisosRoles;
 import com.chickenbikerv2.service.PermisosRolesService;
@@ -20,7 +20,7 @@ public class PermisosRolesController {
         this.permisosRolesService = permisosRolesService;
     }
 
-    @GetMapping("/listar")
+    @GetMapping("/listarRoles")
     public List<PermisosRoles> listar() {
         return permisosRolesService.listar();
     }
