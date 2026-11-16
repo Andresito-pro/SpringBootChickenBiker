@@ -16,11 +16,13 @@ public class RolesService {
         this.rolesRepository = rolesRepository;
     }
 
-    public List<Roles> listarRoles() {
+    public List<Roles> listar() {
         return rolesRepository.findAll();
     }
 
-
+    public List<Roles> listarRoles() {
+        return listar();
+    }
 
     public Optional<Roles> buscarPorId(Integer id) {
         return rolesRepository.findById(id);
@@ -30,9 +32,11 @@ public class RolesService {
         return rolesRepository.save(roles);
     }
 
+    public void insertar(Roles rol) {
+        guardar(rol);
+    }
+
     public void eliminar(Integer id) {
         rolesRepository.deleteById(id);
     }
-
-    public void insertar(Roles rol) { guardar(rol); }
 }
