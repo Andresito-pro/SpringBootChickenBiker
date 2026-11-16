@@ -9,4 +9,5 @@ import java.util.List;
 public interface ProductosRepository extends JpaRepository<Productos, Integer> {
 
     List<Productos> findByActivoProducto(Byte activoProducto);
+    List<Productos> findByActivoProductoOrderByNombrePlatoAsc(Byte activoProducto);
 }

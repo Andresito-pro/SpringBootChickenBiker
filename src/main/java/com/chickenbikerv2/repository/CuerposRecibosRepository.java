@@ -9,4 +9,6 @@ import java.util.List;
 public interface CuerposRecibosRepository extends JpaRepository<CuerposRecibos, Integer> {
 
     List<CuerposRecibos> findByCabeceraReciboIdCabeceraRecibo(Integer idCabeceraRecibo);
+    List<CuerposRecibos> findByCabeceraReciboIdCabeceraRecibo(int idCabeceraRecibo);
+
 }

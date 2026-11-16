@@ -10,4 +10,5 @@ public interface PedidosVentasRepository extends JpaRepository<PedidosVentas, In
 
     List<PedidosVentas> findByUsuarioIdUsuario(Integer usuarioId);
     List<PedidosVentas> findByEstadoPedidoIdEstado(Integer estadoId);
+    List<PedidosVentas> findAllByOrderByFechaPedidoDesc();
 }
