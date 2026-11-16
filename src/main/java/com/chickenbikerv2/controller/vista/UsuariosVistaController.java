@@ -1,0 +1,174 @@
+package com.chickenbikerv2.controller.vista;
+
+import com.chickenbikerv2.entity.EstadosUsuarios;
+import com.chickenbikerv2.entity.Roles;
+import com.chickenbikerv2.entity.Usuarios;
+import com.chickenbikerv2.service.EstadosUsuariosService;
+import com.chickenbikerv2.service.RolesService;
+import com.chickenbikerv2.service.TiposDocumentosService;
+import com.chickenbikerv2.service.UsuariosService;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Controller
+@RequestMapping("/usuarios")
+public class UsuariosVistaController {
+
+    private final UsuariosService usuariosService;
+    private final RolesService rolesService;
+    private final TiposDocumentosService tiposDocumentosService;
+    private final EstadosUsuariosService estadosUsuariosService;
+
+    public UsuariosVistaController(UsuariosService usuariosService,
+                                   RolesService rolesService,
+                                   TiposDocumentosService tiposDocumentosService,
+                                   EstadosUsuariosService estadosUsuariosService) {
+        this.usuariosService = usuariosService;
+        this.rolesService = rolesService;
+        this.tiposDocumentosService = tiposDocumentosService;
+        this.estadosUsuariosService = estadosUsuariosService;
+    }
+
+    @GetMapping({"", "/listar"})
+    public String listar(Model model) {
+        List<Usuarios> listaUsuarios = usuariosService.listar();
+        List<Roles> listaRoles = rolesService.listar();
+        List<EstadosUsuarios> listaEstados = estadosUsuariosService.listar();
+
+        Map<Integer, String> mapaRoles = listaRoles.stream()
+                .collect(Collectors.toMap(
+                        Roles::getIdRoles,
+                        Roles::getNombreRol,
+                        (existente, reemplazo) -> existente
+                ));
+
+        Map<Integer, String> mapaEstados = listaEstados.stream()
+                .collect(Collectors.toMap(
+                        EstadosUsuarios::getIdEstadosUsuarios,
+                        EstadosUsuarios::getNombreEstado,
+                        (existente, reemplazo) -> existente
+                ));
+
+        model.addAttribute("listaUsuarios", listaUsuarios);
+        model.addAttribute("listaRoles", listaRoles);
+        model.addAttribute("mapaRoles", mapaRoles);
+        model.addAttribute("mapaEstados", mapaEstados);
+        model.addAttribute("menuActivo", "usuarios");
+        return "usuarios/listarUsuarios";
+    }
+
+    @GetMapping("/nuevo")
+    public String nuevo(Model model) {
+        Usuarios usuario = new Usuarios();
+        usuario.setEstadosUsuariosIdEstadosUsuarios(1);
+        usuario.setAutorizacionDatos((byte) 0);
+
+        model.addAttribute("usuario", usuario);
+        model.addAttribute("listaTiposDoc", tiposDocumentosService.listar());
+        model.addAttribute("listaRoles", rolesService.listar());
+        model.addAttribute("menuActivo", "usuarios");
+        return "usuarios/nuevoUsuario";
+    }
+
+    @GetMapping("/editar/{id}")
+    public String editar(@PathVariable("id") Integer id, Model model, RedirectAttributes redirectAttributes) {
+        Usuarios usuario = usuariosService.buscarPorId(id).orElse(null);
+        if (usuario == null) {
+            redirectAttributes.addFlashAttribute("error", "El usuario seleccionado no existe.");
+            return "redirect:/usuarios";
+        }
+
+        model.addAttribute("usuario", usuario);
+        model.addAttribute("listaTiposDoc", tiposDocumentosService.listar());
+        model.addAttribute("listaRoles", rolesService.listar());
+        model.addAttribute("listaEstados", estadosUsuariosService.listar());
+        model.addAttribute("menuActivo", "usuarios");
+        return "usuarios/editarUsuario";
+    }
+
+    @PostMapping
+    public String guardar(@ModelAttribute("usuario") Usuarios usuario,
+                          RedirectAttributes redirectAttributes) {
+        boolean esEdicion = usuario.getIdUsuario() > 0;
+        String rutaError = esEdicion ? "redirect:/usuarios/editar/" + usuario.getIdUsuario() : "redirect:/usuarios/nuevo";
+
+        Optional<Usuarios> existenteCorreo = usuariosService.buscarPorCorreo(usuario.getCorreoUsuario());
+        if (existenteCorreo.isPresent() && existenteCorreo.get().getIdUsuario() != usuario.getIdUsuario()) {
+            redirectAttributes.addFlashAttribute("error", "Ya existe un usuario registrado con ese correo electrónico.");
+            return rutaError;
+        }
+
+        Optional<Usuarios> existenteDoc = usuariosService.buscarPorDocumento(usuario.getDocumentoUsuario());
+        if (existenteDoc.isPresent() && existenteDoc.get().getIdUsuario() != usuario.getIdUsuario()) {
+            redirectAttributes.addFlashAttribute("error", "Ya existe un usuario registrado con ese número de documento.");
+            return rutaError;
+        }
+
+        if (esEdicion) {
+            Usuarios actual = usuariosService.buscarPorId(usuario.getIdUsuario()).orElse(null);
+            if (actual == null) {
+                redirectAttributes.addFlashAttribute("error", "El usuario que intentas actualizar no existe.");
+                return "redirect:/usuarios";
+            }
+            if (usuario.getPasswordUsuario() == null || usuario.getPasswordUsuario().isBlank()) {
+                usuario.setPasswordUsuario(actual.getPasswordUsuario());
+            }
+        } else {
+            if (usuario.getEstadosUsuariosIdEstadosUsuarios() == 0) {
+                usuario.setEstadosUsuariosIdEstadosUsuarios(1);
+            }
+        }
+
+        if (usuario.getFechaVencimiento() == null) {
+            usuario.setFechaVencimiento(LocalDate.now().plusYears(1));
+        }
+
+        if (usuario.getAutorizacionDatos() == null) {
+            usuario.setAutorizacionDatos((byte) 0);
+        }
+
+        try {
+            usuariosService.guardar(usuario);
+            redirectAttributes.addFlashAttribute("mensaje",
+                    esEdicion ? "Usuario actualizado correctamente." : "Usuario registrado correctamente.");
+        } catch (DataIntegrityViolationException e) {
+            redirectAttributes.addFlashAttribute("error", "No se pudo guardar el usuario. Verifica que los datos sean válidos y no estén duplicados.");
+            return rutaError;
+        }
+
+        return "redirect:/usuarios";
+    }
+
+    @PostMapping("/activar/{id}")
+    public String activar(@PathVariable("id") Integer id, RedirectAttributes redirectAttributes) {
+        usuariosService.buscarPorId(id).ifPresent(u -> {
+            u.setEstadosUsuariosIdEstadosUsuarios(1);
+            usuariosService.guardar(u);
+            redirectAttributes.addFlashAttribute("mensaje", "Usuario activado correctamente.");
+        });
+        return "redirect:/usuarios";
+    }
+
+    @PostMapping("/inactivar/{id}")
+    public String inactivar(@PathVariable("id") Integer id, RedirectAttributes redirectAttributes) {
+        usuariosService.buscarPorId(id).ifPresent(u -> {
+            u.setEstadosUsuariosIdEstadosUsuarios(2);
+            usuariosService.guardar(u);
+            redirectAttributes.addFlashAttribute("mensaje", "Usuario inactivado correctamente.");
+        });
+        return "redirect:/usuarios";
+    }
+}

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<aside class="sidebar" id="sidebar" th:fragment="sidebar"
+       th:with="sinSesion=${permisosSesion == null},
+                puedeMesas=${sinSesion or permisosSesion.contains('Gestionar mesas')},
+                puedePedidos=${sinSesion or permisosSesion.contains('Gestionar pedidos')},
+                puedeCaja=${sinSesion or permisosSesion.contains('Gestionar caja')},
+                puedeReportes=${sinSesion or permisosSesion.contains('Consultar reportes')},
+                puedeProductos=${sinSesion or permisosSesion.contains('Gestionar productos')},
+                puedeRoles=${sinSesion or permisosSesion.contains('Gestionar roles')},
+                esAdministrador=${sinSesion or nombreRolSesion == 'Administrador'}">
+
+    <!-- Logo del Sidebar -->
+    <div class="sidebar-logo">
+        <img th:src="@{/img/logochicken.png}" alt="Chicken Biker Logo">
+        <div class="logo-text">
+            <h2>Chicken Biker</h2>
+            <span>Point of Sale</span>
+        </div>
+    </div>
+
+    <!-- Navegación -->
+    <nav class="sidebar-nav">
+        <span class="nav-label">Operación</span>
+        <a th:href="@{/dashboard}" class="nav-item"
+           th:classappend="${menuActivo == 'dashboard'} ? 'active'" data-tooltip="Dashboard">
+            <i class="bi bi-house-door"></i><span>Dashboard</span>
+        </a>
+
+        <a th:if="${puedeMesas}" th:href="@{/mesas}" class="nav-item"
+           th:classappend="${menuActivo == 'mesas'} ? 'active'" data-tooltip="Mesas">
+            <i class="bi bi-table"></i><span>Mesas</span>
+        </a>
+
+        <th:block th:if="${puedePedidos}">
+            <a th:href="@{/pedidos/nuevo}" class="nav-item"
+               th:classappend="${menuActivo == 'tomarPedido'} ? 'active'" data-tooltip="Tomar Pedido">
+                <i class="bi bi-cart-plus"></i><span>Tomar Pedido</span>
+            </a>
+            <a th:href="@{/pedidos}" class="nav-item"
+               th:classappend="${menuActivo == 'pedidos'} ? 'active'" data-tooltip="Historial Pedidos">
+                <i class="bi bi-receipt"></i><span>Pedidos</span>
+            </a>
+        </th:block>
+
+        <th:block th:if="${puedeCaja or puedeReportes}">
+            <span class="nav-label">Finanzas</span>
+
+            <th:block th:if="${puedeCaja}">
+                <a th:href="@{/caja}" class="nav-item"
+                   th:classappend="${menuActivo == 'caja'} ? 'active'" data-tooltip="Caja">
+                    <i class="bi bi-cash-stack"></i><span>Apertura / Cierre Caja</span>
+                </a>
+                <a th:href="@{/movimientos}" class="nav-item"
+                   th:classappend="${menuActivo == 'movimientos'} ? 'active'" data-tooltip="Movimientos">
+                    <i class="bi bi-arrow-left-right"></i><span>Movimientos Caja</span>
+                </a>
+            </th:block>
+
+            <a th:if="${puedeReportes}" th:href="@{/facturas}" class="nav-item"
+               th:classappend="${menuActivo == 'facturas'} ? 'active'" data-tooltip="Facturas / Recibos">
+                <i class="bi bi-receipt-cutoff"></i><span>Facturas / Recibos</span>
+            </a>
+        </th:block>
+
+        <th:block th:if="${puedeProductos or esAdministrador or puedeRoles}">
+            <span class="nav-label">Administración</span>
+
+            <th:block th:if="${puedeProductos}">
+                <a th:href="@{/productos}" class="nav-item"
+                   th:classappend="${menuActivo == 'productos'} ? 'active'" data-tooltip="Menú">
+                    <i class="bi bi-journal-bookmark"></i><span>Productos</span>
+                </a>
+                <a th:href="@{/categorias}" class="nav-item"
+                   th:classappend="${menuActivo == 'categorias'} ? 'active'" data-tooltip="Categorías">
+                    <i class="bi bi-layers"></i><span>Categorías</span>
+                </a>
+            </th:block>
+
+            <th:block th:if="${esAdministrador}">
+                <a th:href="@{/tipos-documento}" class="nav-item"
+                   th:classappend="${menuActivo == 'tiposDocumento'} ? 'active'" data-tooltip="Tipos de documento">
+                    <i class="bi bi-person-vcard"></i><span>Tipos de documento</span>
+                </a>
+                <a th:href="@{/usuarios}" class="nav-item"
+                   th:classappend="${menuActivo == 'usuarios'} ? 'active'" data-tooltip="Usuarios">
+                    <i class="bi bi-people"></i><span>Usuarios</span>
+                </a>
+            </th:block>
+
+            <a th:if="${puedeRoles}" th:href="@{/roles}" class="nav-item"
+               th:classappend="${menuActivo == 'roles'} ? 'active'" data-tooltip="Roles">
+                <i class="bi bi-shield-lock"></i><span>Roles</span>
+            </a>
+        </th:block>
+    </nav>
+
+    <!-- Footer de usuario -->
+    <div class="sidebar-footer">
+        <div class="user-profile">
+            <div class="avatar"
+                 th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
+                CB
+            </div>
+            <div class="user-info">
+                <strong th:text="${session.usuarioSesion != null ? session.usuarioSesion.nombreUsuario + ' ' + session.usuarioSesion.apellidoUsuario : 'Usuario Chicken Biker'}">
+                    Usuario Chicken Biker
+                </strong>
+                <span th:text="${nombreRolSesion != null ? nombreRolSesion : 'Administrador'}">Administrador</span>
+            </div>
+        </div>
+        <form method="post" th:action="@{/logout}" class="logout-form">
+            <button type="submit" class="logout-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
+                <i class="bi bi-box-arrow-right"></i>
+            </button>
+        </form>
+    </div>
+
+</aside>
+
+</body>
+</html>

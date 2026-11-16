@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chicken Biker · Usuarios</title>
+
+    <!-- Fuentes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5.3.3 + Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Estilos de Chicken Biker -->
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app-shell">
+
+    <!-- SIDEBAR -->
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <div class="main-content">
+
+        <!-- TOPBAR -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="hamburger" id="hamburgerBtn" type="button" aria-label="Abrir menú">
+                    <i class="bi bi-list"></i>
+                </button>
+                <div class="greeting-block">
+                    <h1>Usuarios</h1>
+                    <div class="greeting-meta">
+                        <span>Administra los usuarios y sus permisos en el sistema</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <button class="icon-btn" type="button" aria-label="Notificaciones">
+                    <i class="bi bi-bell"></i>
+                    <span class="notif-dot"></span>
+                </button>
+                <div class="topbar-avatar"
+                     th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
+                    CB
+                </div>
+            </div>
+        </header>
+
+        <!-- CONTENIDO DE LA VISTA -->
+        <main class="content">
+            <div class="container-fluid">
+
+                <!-- ALERTAS -->
+                <div th:if="${error != null}" class="alert alert-cb alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-octagon-fill alert-cb-icon"></i>
+                    <div class="alert-cb-body" th:text="${error}"></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+
+                <div th:if="${mensaje != null}" class="alert alert-cb alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle-fill alert-cb-icon"></i>
+                    <div class="alert-cb-body" th:text="${mensaje}"></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+
+                <!-- ENCABEZADO Y BOTÓN NUEVO -->
+                <div class="page-header">
+                    <div>
+                        <h2 class="page-header-title">Listado de Usuarios</h2>
+                        <p class="page-header-sub">
+                            Total registrados: <strong id="usersCount" th:text="${#lists.size(listaUsuarios)}">0</strong>
+                        </p>
+                    </div>
+                    <div class="page-header-actions">
+                        <a th:href="@{/usuarios/nuevo}" class="btn-cb btn-cb-primary">
+                            <i class="bi bi-person-plus me-2"></i> Nuevo usuario
+                        </a>
+                    </div>
+                </div>
+
+                <!-- PANEL PRINCIPAL (TARJETA) -->
+                <div class="card-cb" data-filter-scope>
+
+                    <!-- Filtros y Buscador -->
+                    <div class="card-cb-header filter-bar">
+
+                        <div class="search-box">
+                            <i class="bi bi-search"></i>
+                            <input type="text" id="userSearch" data-filter-search
+                                   placeholder="Buscar por nombre, documento, correo o teléfono..."
+                                   autocomplete="off" aria-label="Buscar usuarios">
+                        </div>
+
+                        <div class="pill-group" data-filter-group="estado" role="group" aria-label="Filtrar por estado">
+                            <button type="button" class="pill-btn active" data-filter-value="">Todos <span class="counter" data-filter-counter></span></button>
+                            <button type="button" class="pill-btn" data-filter-value="activo">Activos <span class="counter" data-filter-counter></span></button>
+                            <button type="button" class="pill-btn" data-filter-value="inactivo">Inactivos <span class="counter" data-filter-counter></span></button>
+                        </div>
+
+                        <select th:if="${not #lists.isEmpty(listaRoles)}"
+                                class="form-select filter-control" data-filter-field="rol" aria-label="Filtrar por rol">
+                            <option value="">Todos los roles</option>
+                            <option th:each="rolOpcion : ${listaRoles}"
+                                    th:value="${rolOpcion.idRoles}"
+                                    th:text="${rolOpcion.nombreRol}">Rol</option>
+                        </select>
+
+                        <div class="filter-actions">
+                            <span class="filter-result d-none" data-filter-result aria-live="polite"></span>
+                            <button type="button" class="btn-cb btn-cb-secondary btn-cb-sm" data-filter-clear disabled>
+                                <i class="bi bi-x-circle me-1"></i> Limpiar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabla -->
+                    <div class="card-cb-body card-cb-body-flush">
+                        <div class="table-responsive">
+                            <table class="table table-cb table-hover align-middle mb-0" id="usersTable">
+                                <thead>
+                                <tr>
+                                    <th class="ps-4 py-3">Usuario</th>
+                                    <th class="py-3">Documento</th>
+                                    <th class="py-3">Correo</th>
+                                    <th class="py-3">Teléfono</th>
+                                    <th class="py-3">Rol</th>
+                                    <th class="py-3">Vigencia</th>
+                                    <th class="py-3">Estado</th>
+                                    <th class="text-end pe-4 py-3">Acciones</th>
+                                </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+
+                                <!-- Estado vacío -->
+                                <tr th:if="${#lists.isEmpty(listaUsuarios)}">
+                                    <td colspan="8" class="table-empty">
+                                        <div class="icon-bubble"><i class="bi bi-people"></i></div>
+                                        <h5 class="fw-bold text-dark">No hay usuarios registrados</h5>
+                                        <p class="text-muted mb-4">Cuando registres usuarios aparecerán aquí.</p>
+                                        <a th:href="@{/usuarios/nuevo}" class="btn-cb btn-cb-primary">
+                                            <i class="bi bi-person-plus me-2"></i> Crear usuario
+                                        </a>
+                                    </td>
+                                </tr>
+
+                                <!-- Listado -->
+                                <th:block th:unless="${#lists.isEmpty(listaUsuarios)}">
+                                    <tr th:each="u : ${listaUsuarios}" data-filter-item
+                                        th:attr="data-search=${u.nombreUsuario + ' ' + u.apellidoUsuario + ' ' + u.documentoUsuario + ' ' + u.correoUsuario + ' ' + (u.telefonoUsuario != null ? u.telefonoUsuario : '') + ' #' + u.idUsuario},
+                                                         data-estado=${u.estadosUsuariosIdEstadosUsuarios == 1 ? 'activo' : 'inactivo'},
+                                                         data-rol=${u.rolesIdRoles}">
+
+                                        <!-- Usuario -->
+                                        <td class="ps-4 py-3">
+                                            <div class="d-flex align-items-center gap-3">
+                                                <div class="user-avatar-circle"
+                                                     th:text="${#strings.isEmpty(u.nombreUsuario) ? 'U' : #strings.toUpperCase(#strings.substring(u.nombreUsuario, 0, 1))}">
+                                                    U
+                                                </div>
+                                                <div>
+                                                    <strong class="d-block text-dark" th:text="${u.nombreUsuario + ' ' + u.apellidoUsuario}">Nombre Apellido</strong>
+                                                    <small class="text-muted" th:text="'ID #' + ${u.idUsuario}">ID #1</small>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        <!-- Documento -->
+                                        <td>
+                                            <span class="fw-semibold text-dark" th:text="${u.documentoUsuario}">123456789</span>
+                                        </td>
+
+                                        <!-- Correo -->
+                                        <td class="text-muted">
+                                            <i class="bi bi-envelope me-1"></i>
+                                            <span th:text="${u.correoUsuario}">correo@ejemplo.com</span>
+                                        </td>
+
+                                        <!-- Teléfono -->
+                                        <td class="text-muted">
+                                            <i class="bi bi-telephone me-1"></i>
+                                            <span th:text="${u.telefonoUsuario != null and !#strings.isEmpty(u.telefonoUsuario) ? u.telefonoUsuario : 'Sin teléfono'}">3000000000</span>
+                                        </td>
+
+                                        <!-- Rol -->
+                                        <td>
+                                                    <span class="badge-cb badge-cb-neutral"
+                                                          th:text="${mapaRoles[u.rolesIdRoles] ?: 'Rol #' + u.rolesIdRoles}">Rol</span>
+                                        </td>
+
+                                        <!-- Vigencia -->
+                                        <td class="text-muted"
+                                            th:text="${u.fechaVencimiento != null ? #temporals.format(u.fechaVencimiento, 'dd/MM/yyyy') : 'Sin fecha'}">
+                                            01/01/2027
+                                        </td>
+
+                                        <!-- Estado -->
+                                        <td>
+                                                    <span th:if="${u.estadosUsuariosIdEstadosUsuarios == 1}" class="badge-cb badge-cb-success">
+                                                        <span class="status-dot"></span>
+                                                        <span th:text="${mapaEstados[u.estadosUsuariosIdEstadosUsuarios] ?: 'Activo'}">Activo</span>
+                                                    </span>
+                                            <span th:unless="${u.estadosUsuariosIdEstadosUsuarios == 1}" class="badge-cb badge-cb-danger">
+                                                        <span class="status-dot"></span>
+                                                        <span th:text="${mapaEstados[u.estadosUsuariosIdEstadosUsuarios] ?: 'Inactivo'}">Inactivo</span>
+                                                    </span>
+                                        </td>
+
+                                        <!-- Acciones -->
+                                        <td class="text-end pe-4">
+                                            <div class="row-actions">
+                                                <a th:href="@{/usuarios/editar/{id}(id=${u.idUsuario})}"
+                                                   class="btn-cb btn-cb-icon btn-cb-edit" title="Editar">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </a>
+
+                                                <!-- Inactivar -->
+                                                <form th:if="${u.estadosUsuariosIdEstadosUsuarios == 1}"
+                                                      method="post" th:action="@{/usuarios/inactivar/{id}(id=${u.idUsuario})}">
+                                                    <button type="submit" class="btn-cb btn-cb-icon btn-cb-warning" title="Inactivar"
+                                                            data-confirm="¿Deseas inactivar este usuario? No podrá iniciar sesión hasta que lo actives de nuevo.">
+                                                        <i class="bi bi-pause-circle-fill"></i>
+                                                    </button>
+                                                </form>
+
+                                                <!-- Activar -->
+                                                <form th:unless="${u.estadosUsuariosIdEstadosUsuarios == 1}"
+                                                      method="post" th:action="@{/usuarios/activar/{id}(id=${u.idUsuario})}">
+                                                    <button type="submit" class="btn-cb btn-cb-icon btn-cb-success" title="Activar">
+                                                        <i class="bi bi-play-circle-fill"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Fila oculta si no hay resultados en la búsqueda -->
+                                    <tr id="noSearchResults" class="d-none" data-filter-empty>
+                                        <td colspan="8" class="table-empty">
+                                            <div class="icon-bubble"><i class="bi bi-search"></i></div>
+                                            <h5 class="fw-bold text-dark">No se encontraron usuarios</h5>
+                                            <p class="text-muted mb-3">Ningún usuario coincide con la búsqueda y los filtros aplicados.</p>
+                                            <button type="button" class="btn-cb btn-cb-secondary btn-cb-sm" data-filter-clear>
+                                                <i class="bi bi-x-circle me-1"></i> Limpiar filtros
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </th:block>
+
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+<script th:src="@{/js/filtros.js}"></script>
+</body>
+</html>

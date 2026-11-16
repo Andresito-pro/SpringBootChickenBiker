@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chicken Biker · Mesas</title>
+
+    <!-- Fuentes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5.3.3 + Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Estilos de Chicken Biker -->
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app-shell">
+
+    <!-- SIDEBAR -->
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <div class="main-content">
+
+        <!-- TOPBAR -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="hamburger" id="hamburgerBtn" type="button" aria-label="Abrir menú">
+                    <i class="bi bi-list"></i>
+                </button>
+                <div class="greeting-block">
+                    <h1>Mesas</h1>
+                    <div class="greeting-meta">
+                        <span>Gestiona el estado y ocupación del salón</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <button class="icon-btn" type="button" aria-label="Notificaciones">
+                    <i class="bi bi-bell"></i>
+                    <span class="notif-dot"></span>
+                </button>
+                <div class="topbar-avatar"
+                     th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
+                    CB
+                </div>
+            </div>
+        </header>
+
+        <!-- CONTENIDO DE LA VISTA -->
+        <main class="content">
+            <div class="container-fluid" data-filter-scope>
+
+                <!-- ALERTAS -->
+                <div th:if="${error != null}" class="alert alert-cb alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-octagon-fill alert-cb-icon"></i>
+                    <div class="alert-cb-body" th:text="${error}"></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+
+                <div th:if="${mensaje != null}" class="alert alert-cb alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle-fill alert-cb-icon"></i>
+                    <div class="alert-cb-body" th:text="${mensaje}"></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+
+                <!-- ENCABEZADO Y ACCIÓN -->
+                <div class="page-header">
+                    <div>
+                        <h2 class="page-header-title">Gestión del Salón</h2>
+                        <p class="page-header-sub">
+                            Total registradas: <strong th:text="${totalMesas ?: 0}">0</strong>
+                        </p>
+                    </div>
+                    <div class="page-header-actions">
+                        <a th:href="@{/mesas/nuevo}" class="btn-cb btn-cb-primary">
+                            <i class="bi bi-plus-lg me-1"></i> Agregar mesa
+                        </a>
+                    </div>
+                </div>
+
+                <!-- BARRA DE FILTROS -->
+                <div class="toolbar filter-bar">
+                    <div class="search-box">
+                        <i class="bi bi-search"></i>
+                        <input type="text" data-filter-search placeholder="Buscar por número o ID de mesa..."
+                               autocomplete="off" aria-label="Buscar mesas">
+                    </div>
+
+                    <div class="pill-group" data-filter-group="estado" role="group" aria-label="Filtrar por estado">
+                        <button type="button" class="pill-btn active" data-filter-value="">
+                            Todos <span class="counter" data-filter-counter></span>
+                        </button>
+
+                        <button type="button" class="pill-btn"
+                                th:each="em : ${listaEstadosMesas}"
+                                th:with="claseDot=${em.nombreEstadoMesa == 'Disponible' ? 'status-disponible' : (em.nombreEstadoMesa == 'Ocupada' ? 'status-ocupada' : (em.nombreEstadoMesa == 'Pendiente' ? 'status-pendiente' : 'status-inactiva'))}"
+                                th:attr="data-filter-value=${em.idEstadoMesa}">
+                            <span class="dot" th:classappend="' ' + ${claseDot}"></span>
+                            <span th:text="${em.nombreEstadoMesa}">Estado</span>
+                            <span class="counter" data-filter-counter></span>
+                        </button>
+                    </div>
+
+                    <div class="filter-actions">
+                        <span class="filter-result d-none" data-filter-result aria-live="polite"></span>
+                        <button type="button" class="btn-cb btn-cb-secondary btn-cb-sm" data-filter-clear disabled>
+                            <i class="bi bi-x-circle me-1"></i> Limpiar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CUADRÍCULA DE TARJETAS DE MESAS (.tables-grid) -->
+                <div class="tables-grid">
+
+                    <!-- Estado vacío -->
+                    <div th:if="${#lists.isEmpty(listaMesas)}" class="empty-state">
+                        <i class="bi bi-grid-3x3-gap fs-1 text-muted d-block mb-3"></i>
+                        <h5 class="fw-bold text-dark">No hay mesas registradas</h5>
+                        <p class="text-muted">Presiona "Agregar mesa" para crear la primera.</p>
+                    </div>
+
+                    <!-- Listado de tarjetas -->
+                    <th:block th:unless="${#lists.isEmpty(listaMesas)}">
+                        <div th:each="m : ${listaMesas}"
+                             th:with="nombreEstado=${mapaEstados[m.estadoMesaIdEstadoMesa] ?: 'Desconocido'},
+                                          claseEstado=${nombreEstado == 'Disponible' ? 'is-disponible' : (nombreEstado == 'Ocupada' ? 'is-ocupada' : (nombreEstado == 'Pendiente' ? 'is-pendiente' : 'is-inactiva'))}"
+                             class="table-card"
+                             th:classappend="' ' + ${claseEstado}"
+                             data-filter-item
+                             th:attr="data-search=${'mesa ' + m.numeroMesa + ' #' + m.idMesa},
+                                          data-estado=${m.estadoMesaIdEstadoMesa}">
+
+                            <!-- Cabecera de la Tarjeta -->
+                            <div>
+                                <div class="table-card-header">
+                                    <h3 class="table-number" th:text="'Mesa ' + ${m.numeroMesa}">Mesa 1</h3>
+                                    <span class="table-dot-status"></span>
+                                </div>
+
+                                <span class="table-status-badge" th:text="${nombreEstado}">Disponible</span>
+
+                                <div class="table-card-body">
+                                    <div class="table-info-row">
+                                        <i class="bi bi-hash"></i>
+                                        <span th:text="'ID Mesa: #' + ${m.idMesa}">ID Mesa: #1</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pie de Tarjeta (Acciones) -->
+                            <div class="table-card-footer">
+                                <div class="row-actions ms-auto">
+                                    <a th:href="@{/mesas/editar/{id}(id=${m.idMesa})}"
+                                       class="btn-cb btn-cb-icon btn-cb-edit" title="Editar">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </a>
+
+                                    <form method="post" th:action="@{/mesas/eliminar/{id}(id=${m.idMesa})}">
+                                        <button type="submit" class="btn-cb btn-cb-icon btn-cb-danger" title="Eliminar"
+                                                data-confirm="¿Seguro que deseas eliminar esta mesa?">
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Sin coincidencias con los filtros (lo muestra filtros.js) -->
+                        <div class="empty-state d-none" data-filter-empty>
+                            <i class="bi bi-search"></i>
+                            <h5 class="fw-bold">No se encontraron mesas</h5>
+                            <p class="text-muted mb-3">Ninguna mesa coincide con la búsqueda y el estado seleccionado.</p>
+                            <button type="button" class="btn-cb btn-cb-secondary btn-cb-sm" data-filter-clear>
+                                <i class="bi bi-x-circle me-1"></i> Limpiar filtros
+                            </button>
+                        </div>
+                    </th:block>
+
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+<script th:src="@{/js/filtros.js}"></script>
+</body>
+</html>

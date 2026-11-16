@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tomar Pedido - Chicken Biker</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link rel="stylesheet" th:href="@{/assets/css/style.css}">
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app-shell">
+    <aside class="sidebar" id="sidebar" th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <div class="main-content">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="hamburger" id="hamburgerBtn" type="button" aria-label="Abrir menú">
+                    <i class="bi bi-list"></i>
+                </button>
+                <div class="greeting-block">
+                    <h1>Tomar Pedido</h1>
+                    <div class="greeting-meta">
+                        <span>Registra un nuevo pedido en mesa o para llevar</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <button class="cash-btn"
+                        id="cashToggleBtn"
+                        type="button"
+                        th:data-open="${cajaAbierta}">
+                    <span class="cash-indicator"></span>
+                    <span class="cash-label" th:text="${cajaAbierta} ? 'Caja Abierta' : 'Caja Cerrada'">
+                            Caja Cerrada
+                        </span>
+                </button>
+
+                <button class="icon-btn" type="button" aria-label="Notificaciones">
+                    <i class="bi bi-bell"></i>
+                    <span class="notif-dot"></span>
+                </button>
+
+                <div class="topbar-avatar"
+                     th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
+                    CB
+                </div>
+            </div>
+        </header>
+
+        <main class="content" th:with="esParaLlevar=${tipoPedidoSeleccionado == TIPO_PARA_LLEVAR}">
+            <div class="container-fluid">
+                <h2 class="page-header-title mb-4">Tomar Pedido</h2>
+
+                <!-- MENSAJES -->
+                <div th:if="${error != null}" class="alert alert-cb alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-octagon-fill alert-cb-icon"></i>
+                    <div class="alert-cb-body" th:text="${error}"></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+
+                <div th:if="${mensaje != null}" class="alert alert-cb alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle-fill alert-cb-icon"></i>
+                    <div class="alert-cb-body" th:text="${mensaje}"></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+
+                <div th:if="${avisoCaja != null}" class="alert alert-cb alert-warning" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill alert-cb-icon"></i>
+                    <div class="alert-cb-body">
+                        <strong th:text="${avisoCaja}"></strong>
+                        <div class="small">No podrás confirmar un pedido hasta que la caja esté abierta. Esta validación también se aplica en el servidor.</div>
+                    </div>
+                </div>
+
+                <!-- TIPO DE PEDIDO -->
+                <div class="card-cb mb-4 order-type">
+                    <div class="card-cb-body d-flex flex-wrap align-items-center gap-3">
+                            <span class="fw-semibold" id="tipoPedidoTitulo">
+                                <i class="bi bi-bag-check me-2"></i>Tipo de pedido
+                            </span>
+
+                        <div class="pill-group" role="radiogroup" aria-labelledby="tipoPedidoTitulo">
+                            <input type="radio" class="btn-check" name="tipoPedido" id="tipoPedidoMesa"
+                                   th:value="${TIPO_MESA}" form="pedidoForm" autocomplete="off"
+                                   th:checked="${!esParaLlevar}">
+                            <label class="pill-btn" for="tipoPedidoMesa">
+                                <i class="bi bi-table"></i> En mesa
+                            </label>
+
+                            <input type="radio" class="btn-check" name="tipoPedido" id="tipoPedidoLlevar"
+                                   th:value="${TIPO_PARA_LLEVAR}" form="pedidoForm" autocomplete="off"
+                                   th:checked="${esParaLlevar}">
+                            <label class="pill-btn" for="tipoPedidoLlevar">
+                                <i class="bi bi-bag"></i> Para llevar
+                            </label>
+                        </div>
+
+                        <span class="order-type-hint" id="tipoPedidoAyuda" aria-live="polite">
+                                <th:block th:if="${esParaLlevar}">Mesa: <strong>no requerida</strong>. El pedido no ocupará ninguna mesa.</th:block>
+                                <th:block th:unless="${esParaLlevar}">Selecciona una mesa disponible para el pedido.</th:block>
+                            </span>
+                    </div>
+                </div>
+
+                <!-- SELECCIÓN DE MESA -->
+                <div class="card-cb mb-4" th:classappend="${esParaLlevar} ? 'd-none'" id="mesaSection">
+                    <div class="card-cb-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-table me-2"></i>
+                            Seleccione Mesa
+                        </h5>
+                    </div>
+
+                    <div class="card-cb-body">
+                        <div class="mesa-grid" id="mesaContainer">
+                            <th:block th:each="mesa : ${mesas}" th:switch="${mesa.estadoMesaIdEstadoMesa}">
+                                <button th:case="1"
+                                        type="button"
+                                        class="mesa-btn"
+                                        aria-pressed="false"
+                                        th:data-id="${mesa.idMesa}"
+                                        th:data-numero="${mesa.numeroMesa}"
+                                        th:disabled="${!cajaAbierta}"
+                                        th:title="${!cajaAbierta} ? 'No hay caja abierta' : null">
+                                    <span class="mesa-numero" th:text="'Mesa ' + ${mesa.numeroMesa}"></span>
+                                    <span class="mesa-estado">Disponible</span>
+                                </button>
+
+                                <button th:case="2"
+                                        type="button"
+                                        class="mesa-btn mesa-ocupada"
+                                        disabled
+                                        title="Esta mesa tiene un pedido activo">
+                                    <span class="mesa-numero" th:text="'Mesa ' + ${mesa.numeroMesa}"></span>
+                                    <span class="mesa-estado">Ocupada</span>
+                                </button>
+
+                                <button th:case="3"
+                                        type="button"
+                                        class="mesa-btn mesa-reservada"
+                                        disabled
+                                        title="Esta mesa está reservada">
+                                    <span class="mesa-numero" th:text="'Mesa ' + ${mesa.numeroMesa}"></span>
+                                    <span class="mesa-estado">Reservada</span>
+                                </button>
+
+                                <button th:case="4"
+                                        type="button"
+                                        class="mesa-btn mesa-inactiva"
+                                        disabled
+                                        title="Esta mesa está fuera de servicio">
+                                    <span class="mesa-numero" th:text="'Mesa ' + ${mesa.numeroMesa}"></span>
+                                    <span class="mesa-estado">Inactiva</span>
+                                </button>
+                            </th:block>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="pedidoForm" th:action="@{/pedidos/guardar}" method="post">
+                    <input type="hidden" name="mesaId" id="mesaId">
+
+                    <div class="row">
+                        <!-- PRODUCTOS -->
+                        <div class="col-md-8">
+                            <div class="card-cb" data-filter-scope>
+                                <div class="card-cb-header filter-bar">
+                                    <h5 class="mb-0 me-auto">
+                                        <i class="bi bi-cup-hot me-2"></i>
+                                        Productos Disponibles
+                                    </h5>
+
+                                    <div class="search-box">
+                                        <i class="bi bi-search"></i>
+                                        <input type="text" data-filter-search placeholder="Buscar producto..."
+                                               autocomplete="off" aria-label="Buscar productos">
+                                    </div>
+
+                                    <span class="filter-result d-none" data-filter-result aria-live="polite"></span>
+                                </div>
+
+                                <div class="card-body scroll-panel">
+                                    <div class="row">
+                                        <div class="col-md-6 col-lg-4 mb-3"
+                                             th:each="producto : ${productos}"
+                                             data-filter-item
+                                             th:data-search="${producto.nombrePlato + ' ' + (producto.descripcionProductos != null ? producto.descripcionProductos : '')}">
+
+                                            <div class="card-cb h-100">
+                                                <div class="card-cb-body">
+                                                    <h6 class="card-cb-title" th:text="${producto.nombrePlato}"></h6>
+                                                    <p class="text-muted" th:text="${producto.descripcionProductos}"></p>
+                                                    <p class="fw-bold"
+                                                       th:text="'$ ' + ${#numbers.formatDecimal(producto.precioVenta, 1, 'COMMA', 2, 'POINT')}">
+                                                    </p>
+
+                                                    <button type="button"
+                                                            class="btn-cb btn-cb-success btn-cb-sm agregar-producto"
+                                                            th:data-id="${producto.idProductos}"
+                                                            th:data-nombre="${producto.nombrePlato}"
+                                                            th:data-precio="${producto.precioVenta}"
+                                                            th:disabled="${!cajaAbierta}">
+                                                        <i class="bi bi-plus-circle-fill"></i>
+                                                        Agregar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Sin coincidencias -->
+                                        <div class="col-12 d-none" data-filter-empty>
+                                            <div class="empty-state">
+                                                <i class="bi bi-search"></i>
+                                                <h5 class="fw-bold">No se encontraron productos</h5>
+                                                <p class="text-muted mb-3">Prueba con otro nombre.</p>
+                                                <button type="button" class="btn-cb btn-cb-secondary btn-cb-sm" data-filter-clear>
+                                                    <i class="bi bi-x-circle me-1"></i> Limpiar búsqueda
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CARRITO -->
+                        <div class="col-md-4">
+                            <div class="card-cb">
+                                <div class="card-cb-header">
+                                    <h5 class="mb-0">
+                                        <i class="bi bi-cart3 me-2"></i>
+                                        Pedido Actual
+                                    </h5>
+                                </div>
+
+                                <div class="card-cb-body">
+                                    <p class="small text-muted mb-3">
+                                        <i class="bi me-1" th:classappend="${esParaLlevar} ? 'bi-bag' : 'bi-table'" id="mesaSeleccionadaIcono"></i>
+                                        <span id="mesaSeleccionadaTexto" th:text="${esParaLlevar} ? 'Tipo' : 'Mesa seleccionada'"></span>:
+                                        <strong id="mesaSeleccionadaLabel" th:text="${esParaLlevar} ? 'Para llevar (sin mesa)' : 'Ninguna'"></strong>
+                                    </p>
+
+                                    <div id="carritoContainer">
+                                        <p class="text-muted">
+                                            Seleccione una mesa y agregue productos.
+                                        </p>
+                                    </div>
+
+                                    <hr>
+
+                                    <div class="d-flex justify-content-between">
+                                        <h5>Total:</h5>
+                                        <h5 id="totalPedido">$ 0.00</h5>
+                                    </div>
+
+                                    <button type="submit"
+                                            class="btn-cb btn-cb-success w-100 mt-3"
+                                            id="btnConfirmar"
+                                            disabled>
+                                        <i class="bi bi-check-circle"></i>
+                                        Confirmar Pedido
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/assets/js/common.js}"></script>
+<script th:src="@{/assets/js/filtros.js}"></script>
+<script th:src="@{/assets/js/tomarPedido.js}"></script>
+</body>
+</html>
