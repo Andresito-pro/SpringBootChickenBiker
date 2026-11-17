@@ -20,7 +20,7 @@ public class DetallesPedidosVentaController {
         this.detallesPedidosVentaService = detallesPedidosVentaService;
     }
 
-    @GetMapping("/listarRoles")
+    @GetMapping({"/listar", "/listarRoles"})
     public List<DetallesPedidosVenta> listar() {
         return detallesPedidosVentaService.listar();
     }

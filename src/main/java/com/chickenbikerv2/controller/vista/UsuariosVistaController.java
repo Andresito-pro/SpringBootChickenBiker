@@ -3,10 +3,12 @@ package com.chickenbikerv2.controller.vista;
 import com.chickenbikerv2.entity.EstadosUsuarios;
 import com.chickenbikerv2.entity.Roles;
 import com.chickenbikerv2.entity.Usuarios;
+import com.chickenbikerv2.security.SesionUsuario;
 import com.chickenbikerv2.service.EstadosUsuariosService;
 import com.chickenbikerv2.service.RolesService;
 import com.chickenbikerv2.service.TiposDocumentosService;
 import com.chickenbikerv2.service.UsuariosService;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -105,6 +107,14 @@ public class UsuariosVistaController {
         boolean esEdicion = usuario.getIdUsuario() > 0;
         String rutaError = esEdicion ? "redirect:/usuarios/editar/" + usuario.getIdUsuario() : "redirect:/usuarios/nuevo";
 
+        String faltante = validarObligatorios(usuario);
+        if (faltante != null) {
+            redirectAttributes.addFlashAttribute("error", "El campo \"" + faltante + "\" es obligatorio.");
+            return rutaError;
+        }
+        usuario.setCorreoUsuario(usuario.getCorreoUsuario().trim());
+        usuario.setDocumentoUsuario(usuario.getDocumentoUsuario().trim());
+
         Optional<Usuarios> existenteCorreo = usuariosService.buscarPorCorreo(usuario.getCorreoUsuario());
         if (existenteCorreo.isPresent() && existenteCorreo.get().getIdUsuario() != usuario.getIdUsuario()) {
             redirectAttributes.addFlashAttribute("error", "Ya existe un usuario registrado con ese correo electrónico.");
@@ -117,33 +127,28 @@ public class UsuariosVistaController {
             return rutaError;
         }
 
-        if (esEdicion) {
-            Usuarios actual = usuariosService.buscarPorId(usuario.getIdUsuario()).orElse(null);
-            if (actual == null) {
-                redirectAttributes.addFlashAttribute("error", "El usuario que intentas actualizar no existe.");
-                return "redirect:/usuarios";
-            }
-            if (usuario.getPasswordUsuario() == null || usuario.getPasswordUsuario().isBlank()) {
-                usuario.setPasswordUsuario(actual.getPasswordUsuario());
-            }
-        } else {
-            if (usuario.getEstadosUsuariosIdEstadosUsuarios() == 0) {
-                usuario.setEstadosUsuariosIdEstadosUsuarios(1);
-            }
+        if (!esEdicion && usuario.getEstadosUsuariosIdEstadosUsuarios() == 0) {
+            usuario.setEstadosUsuariosIdEstadosUsuarios(UsuariosService.ESTADO_ACTIVO);
         }
-
         if (usuario.getFechaVencimiento() == null) {
             usuario.setFechaVencimiento(LocalDate.now().plusYears(1));
         }
-
         if (usuario.getAutorizacionDatos() == null) {
             usuario.setAutorizacionDatos((byte) 0);
         }
 
         try {
-            usuariosService.guardar(usuario);
+            // La contraseña se guarda siempre como hash BCrypt (ver UsuariosService)
+            if (esEdicion) {
+                usuariosService.actualizar(usuario);
+            } else {
+                usuariosService.crear(usuario);
+            }
             redirectAttributes.addFlashAttribute("mensaje",
                     esEdicion ? "Usuario actualizado correctamente." : "Usuario registrado correctamente.");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return rutaError;
         } catch (DataIntegrityViolationException e) {
             redirectAttributes.addFlashAttribute("error", "No se pudo guardar el usuario. Verifica que los datos sean válidos y no estén duplicados.");
             return rutaError;
@@ -154,21 +159,39 @@ public class UsuariosVistaController {
 
     @PostMapping("/activar/{id}")
     public String activar(@PathVariable("id") Integer id, RedirectAttributes redirectAttributes) {
-        usuariosService.buscarPorId(id).ifPresent(u -> {
-            u.setEstadosUsuariosIdEstadosUsuarios(1);
-            usuariosService.guardar(u);
-            redirectAttributes.addFlashAttribute("mensaje", "Usuario activado correctamente.");
-        });
+        usuariosService.cambiarEstado(id, UsuariosService.ESTADO_ACTIVO);
+        redirectAttributes.addFlashAttribute("mensaje", "Usuario activado correctamente.");
         return "redirect:/usuarios";
     }
 
     @PostMapping("/inactivar/{id}")
-    public String inactivar(@PathVariable("id") Integer id, RedirectAttributes redirectAttributes) {
-        usuariosService.buscarPorId(id).ifPresent(u -> {
-            u.setEstadosUsuariosIdEstadosUsuarios(2);
-            usuariosService.guardar(u);
-            redirectAttributes.addFlashAttribute("mensaje", "Usuario inactivado correctamente.");
-        });
+    public String inactivar(@PathVariable("id") Integer id, HttpSession session,
+                            RedirectAttributes redirectAttributes) {
+        Usuarios actual = SesionUsuario.obtener(session);
+        if (actual != null && actual.getIdUsuario() == id) {
+            redirectAttributes.addFlashAttribute("error", "No puedes inactivar tu propia cuenta.");
+            return "redirect:/usuarios";
+        }
+        usuariosService.cambiarEstado(id, UsuariosService.ESTADO_INACTIVO);
+        redirectAttributes.addFlashAttribute("mensaje", "Usuario inactivado correctamente.");
         return "redirect:/usuarios";
+    }
+
+    /** Columnas NOT NULL de la tabla usuarios que llegan desde el formulario. */
+    private static String validarObligatorios(Usuarios u) {
+        if (vacio(u.getNombreUsuario())) return "Nombre";
+        if (vacio(u.getApellidoUsuario())) return "Apellido";
+        if (u.getTipoDocumentoIdTipoDocumento() <= 0) return "Tipo de documento";
+        if (vacio(u.getDocumentoUsuario())) return "Documento";
+        if (u.getRolesIdRoles() <= 0) return "Rol";
+        if (vacio(u.getCorreoUsuario())) return "Correo";
+        if (vacio(u.getTelefonoUsuario())) return "Teléfono";
+        if (u.getFechaNacimiento() == null) return "Fecha de nacimiento";
+        if (vacio(u.getDireccionUsuario())) return "Dirección";
+        return null;
+    }
+
+    private static boolean vacio(String valor) {
+        return valor == null || valor.isBlank();
     }
 }

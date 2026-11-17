@@ -20,7 +20,7 @@ public class CategoriasProductosController {
         this.categoriasProductosService = categoriasProductosService;
     }
 
-    @GetMapping("/listarRoles")
+    @GetMapping({"/listar", "/listarRoles"})
     public List<CategoriasProductos> listar() {
         return categoriasProductosService.listar();
     }

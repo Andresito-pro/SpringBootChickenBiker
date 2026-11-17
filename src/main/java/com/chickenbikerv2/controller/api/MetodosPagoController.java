@@ -20,7 +20,7 @@ public class MetodosPagoController {
         this.metodosPagoService = metodosPagoService;
     }
 
-    @GetMapping("/listarRoles")
+    @GetMapping({"/listar", "/listarRoles"})
     public List<MetodosPago> listar() {
         return metodosPagoService.listar();
     }

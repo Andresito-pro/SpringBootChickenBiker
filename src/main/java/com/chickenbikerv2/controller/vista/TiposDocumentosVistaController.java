@@ -26,14 +26,14 @@ public class TiposDocumentosVistaController {
     public String listar(Model model) {
         model.addAttribute("listaTiposDocumento", tiposDocumentosService.listar());
         model.addAttribute("menuActivo", "tiposDocumento");
-        return "tipos-documento/listarTiposDocumentos";
+        return "tiposDocumento/listarTiposDocumentos";
     }
 
     @GetMapping("/nuevo")
     public String nuevo(Model model) {
         model.addAttribute("tipoDocumento", new TiposDocumentos());
         model.addAttribute("menuActivo", "tiposDocumento");
-        return "tipos-documento/nuevoTipoDocumento";
+        return "tiposDocumento/nuevoTipoDocumento";
     }
 
     @GetMapping("/editar/{id}")
@@ -45,14 +45,32 @@ public class TiposDocumentosVistaController {
         }
         model.addAttribute("tipoDocumento", tipoDocumento);
         model.addAttribute("menuActivo", "tiposDocumento");
-        return "tipos-documento/nuevoTipoDocumento";
+        return "tiposDocumento/nuevoTipoDocumento";
     }
 
     @PostMapping
     public String guardar(@ModelAttribute("tipoDocumento") TiposDocumentos tipoDocumento,
                           RedirectAttributes redirectAttributes) {
         boolean esEdicion = tipoDocumento.getIdTipoDocumento() > 0;
-        tiposDocumentosService.guardar(tipoDocumento);
+        String rutaError = esEdicion
+                ? "redirect:/tipos-documento/editar/" + tipoDocumento.getIdTipoDocumento()
+                : "redirect:/tipos-documento/nuevo";
+
+        if (tipoDocumento.getNombreTipoDocumento() == null || tipoDocumento.getNombreTipoDocumento().isBlank()) {
+            redirectAttributes.addFlashAttribute("error", "El nombre del tipo de documento es obligatorio.");
+            return rutaError;
+        }
+        tipoDocumento.setNombreTipoDocumento(tipoDocumento.getNombreTipoDocumento().trim());
+        // descripcion_tipo_documento es NOT NULL en la base de datos
+        tipoDocumento.setDescripcionTipoDocumento(tipoDocumento.getDescripcionTipoDocumento() == null
+                ? "" : tipoDocumento.getDescripcionTipoDocumento().trim());
+
+        try {
+            tiposDocumentosService.guardar(tipoDocumento);
+        } catch (DataIntegrityViolationException e) {
+            redirectAttributes.addFlashAttribute("error", "No se pudo guardar el tipo de documento. Verifica los datos.");
+            return rutaError;
+        }
         redirectAttributes.addFlashAttribute("resultado", esEdicion ? "actualizado" : "creado");
         return "redirect:/tipos-documento";
     }

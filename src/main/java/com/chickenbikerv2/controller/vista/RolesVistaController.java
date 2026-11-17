@@ -49,8 +49,26 @@ public class RolesVistaController {
     }
 
     @PostMapping
-    public String guardarRol(@ModelAttribute("rol") Roles rol) {
-        rolesService.guardar(rol);
+    public String guardarRol(@ModelAttribute("rol") Roles rol, RedirectAttributes redirectAttributes) {
+        boolean esEdicion = rol.getIdRoles() != null && rol.getIdRoles() > 0;
+        String rutaError = esEdicion ? "redirect:/roles/editar/" + rol.getIdRoles() : "redirect:/roles/nuevoRol";
+
+        if (rol.getNombreRol() == null || rol.getNombreRol().isBlank()) {
+            redirectAttributes.addFlashAttribute("error", "El nombre del rol es obligatorio.");
+            return rutaError;
+        }
+        rol.setNombreRol(rol.getNombreRol().trim());
+        // descripcion_rol es NOT NULL en la base de datos
+        rol.setDescripcionRol(rol.getDescripcionRol() == null ? "" : rol.getDescripcionRol().trim());
+
+        try {
+            rolesService.guardar(rol);
+            redirectAttributes.addFlashAttribute("mensaje",
+                    esEdicion ? "Rol actualizado correctamente." : "Rol registrado correctamente.");
+        } catch (DataIntegrityViolationException e) {
+            redirectAttributes.addFlashAttribute("error", "No se pudo guardar el rol. Verifica los datos.");
+            return rutaError;
+        }
         return "redirect:/roles/listarRol";
     }
 

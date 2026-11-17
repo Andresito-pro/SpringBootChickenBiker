@@ -1,7 +1,8 @@
-package com.chickenbikerv2.controller;
+package com.chickenbikerv2.controller.vista;
 
 import com.chickenbikerv2.entity.PedidosVentas;
 import com.chickenbikerv2.entity.Usuarios;
+import com.chickenbikerv2.security.SesionUsuario;
 import com.chickenbikerv2.service.PagosService;
 import com.chickenbikerv2.service.PedidosService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,11 +29,13 @@ public class PedidosVistaController {
     public String listarPedidos(Model model) {
         model.addAttribute("pedidos", pedidosService.listarPedidos());
         model.addAttribute("recibosPorPedido", pedidosService.obtenerMapaRecibosPorPedido());
+        model.addAttribute("numerosMesa", pedidosService.obtenerMapaNumerosMesa());
         model.addAttribute("metodosPago", pagosService.listarMetodosPagoDisponibles());
+        model.addAttribute("menuActivo", "pedidos");
         return "pedidos/pedidos";
     }
 
-    @GetMapping("/tomar")
+    @GetMapping({"/tomar", "/nuevo"})
     public String mostrarFormularioTomarPedido(
             @RequestParam(value = "tipoPedido", required = false) String tipoPedido,
             Model model) {
@@ -47,6 +50,7 @@ public class PedidosVistaController {
         model.addAttribute("productos", pedidosService.listarProductosActivos());
         model.addAttribute("TIPO_MESA", PedidosService.TIPO_MESA);
         model.addAttribute("TIPO_PARA_LLEVAR", PedidosService.TIPO_PARA_LLEVAR);
+        model.addAttribute("menuActivo", "tomarPedido");
 
         if (!model.containsAttribute("tipoPedidoSeleccionado")) {
             model.addAttribute("tipoPedidoSeleccionado",
@@ -62,7 +66,7 @@ public class PedidosVistaController {
                                 HttpServletRequest request,
                                 HttpSession session,
                                 RedirectAttributes redirectAttributes) {
-        Usuarios usuario = (Usuarios) session.getAttribute("usuarioSesion");
+        Usuarios usuario = SesionUsuario.obtener(session);
         if (usuario == null) {
             return "redirect:/login";
         }
@@ -79,8 +83,11 @@ public class PedidosVistaController {
                     usuario.getIdUsuario()
             );
 
+            String detalle = pedido.getMesaIdMesa() == null
+                    ? " (para llevar). Queda pendiente de cobro."
+                    : ". La mesa quedó ocupada hasta el cobro.";
             redirectAttributes.addFlashAttribute("mensaje",
-                    "Pedido #" + pedido.getIdPedidoVenta() + " registrado correctamente.");
+                    "Pedido #" + pedido.getIdPedidoVenta() + " registrado correctamente" + detalle);
             return "redirect:/pedidos";
 
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -97,6 +104,7 @@ public class PedidosVistaController {
         try {
             Map<String, Object> detalle = pedidosService.obtenerDetallePedido(idPedido);
             model.addAllAttributes(detalle);
+            model.addAttribute("menuActivo", "pedidos");
             return "pedidos/verDetallePedido";
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());

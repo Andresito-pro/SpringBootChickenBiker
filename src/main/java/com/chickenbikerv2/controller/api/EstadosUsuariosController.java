@@ -20,7 +20,7 @@ public class EstadosUsuariosController {
         this.estadosUsuariosService = estadosUsuariosService;
     }
 
-    @GetMapping("/listarRoles")
+    @GetMapping({"/listar", "/listarRoles"})
     public List<EstadosUsuarios> listar() {
         return estadosUsuariosService.listar();
     }

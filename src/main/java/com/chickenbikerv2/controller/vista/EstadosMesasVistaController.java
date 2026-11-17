@@ -30,7 +30,7 @@ public class EstadosMesasVistaController {
         model.addAttribute("listaEstadosMesas", listaEstadosMesas);
         model.addAttribute("totalEstadosMesas", listaEstadosMesas.size());
         model.addAttribute("menuActivo", "estados-mesas");
-        return "estados-mesas/listarEstadosMesas";
+        return "estadosMesas/listarEstadosMesas";
     }
 
     @GetMapping("/nuevo")
@@ -40,7 +40,7 @@ public class EstadosMesasVistaController {
 
         model.addAttribute("estadoMesa", estadoMesa);
         model.addAttribute("menuActivo", "estados-mesas");
-        return "estados-mesas/nuevoEstadoMesa";
+        return "estadosMesas/nuevoEstadoMesa";
     }
 
     @GetMapping("/editar/{id}")
@@ -53,7 +53,7 @@ public class EstadosMesasVistaController {
 
         model.addAttribute("estadoMesa", estadoMesa);
         model.addAttribute("menuActivo", "estados-mesas");
-        return "estados-mesas/editarEstadoMesa";
+        return "estadosMesas/editarEstadoMesa";
     }
 
     @PostMapping
@@ -85,6 +85,9 @@ public class EstadosMesasVistaController {
         if (estadoMesa.getActivoEstadoMesa() == null) {
             estadoMesa.setActivoEstadoMesa((byte) 0);
         }
+        // descripcion_estado_mesa es NOT NULL en la base de datos
+        estadoMesa.setDescripcionEstadoMesa(estadoMesa.getDescripcionEstadoMesa() == null
+                ? "" : estadoMesa.getDescripcionEstadoMesa().trim());
 
         try {
             estadosMesasService.guardar(estadoMesa);

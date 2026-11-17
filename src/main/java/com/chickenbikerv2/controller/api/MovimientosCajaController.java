@@ -20,7 +20,7 @@ public class MovimientosCajaController {
         this.movimientosCajaService = movimientosCajaService;
     }
 
-    @GetMapping("/listarRoles")
+    @GetMapping({"/listar", "/listarRoles"})
     public List<MovimientosCaja> listar() {
         return movimientosCajaService.listar();
     }

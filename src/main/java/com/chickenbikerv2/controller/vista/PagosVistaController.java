@@ -1,7 +1,8 @@
-package com.chickenbikerv2.controller;
+package com.chickenbikerv2.controller.vista;
 
 import com.chickenbikerv2.entity.CabecerasRecibos;
 import com.chickenbikerv2.entity.Usuarios;
+import com.chickenbikerv2.security.SesionUsuario;
 import com.chickenbikerv2.service.PagosService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,8 @@ public class PagosVistaController {
     public String listarPendientesCobro(Model model) {
         model.addAttribute("pendientes", pagosService.listarRecibosPendientes());
         model.addAttribute("metodosPago", pagosService.listarMetodosPagoDisponibles());
-        return "pagos/cobrarPedido";
+        model.addAttribute("menuActivo", "caja");
+        return "pedidos/cobrarPedido";
     }
 
     @PostMapping("/cobrar")
@@ -30,7 +32,7 @@ public class PagosVistaController {
                                @RequestParam(value = "origen", defaultValue = "pagos") String origen,
                                HttpSession session,
                                RedirectAttributes redirectAttributes) {
-        Usuarios usuario = (Usuarios) session.getAttribute("usuarioSesion");
+        Usuarios usuario = SesionUsuario.obtener(session);
         if (usuario == null) {
             return "redirect:/login";
         }

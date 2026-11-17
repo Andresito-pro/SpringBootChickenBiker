@@ -20,7 +20,7 @@ public class CabecerasRecibosController {
         this.cabecerasRecibosService = cabecerasRecibosService;
     }
 
-    @GetMapping("/listarRoles")
+    @GetMapping({"/listar", "/listarRoles"})
     public List<CabecerasRecibos> listar() {
         return cabecerasRecibosService.listar();
     }

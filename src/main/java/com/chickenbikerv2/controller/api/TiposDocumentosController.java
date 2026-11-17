@@ -20,7 +20,7 @@ public class TiposDocumentosController {
         this.tiposDocumentosService = tiposDocumentosService;
     }
 
-    @GetMapping("/listarRoles")
+    @GetMapping({"/listar", "/listarRoles"})
     public List<TiposDocumentos> listar() {
         return tiposDocumentosService.listar();
     }

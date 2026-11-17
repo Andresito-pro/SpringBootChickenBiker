@@ -20,7 +20,7 @@ public class PermisosRolesController {
         this.permisosRolesService = permisosRolesService;
     }
 
-    @GetMapping("/listarRoles")
+    @GetMapping({"/listar", "/listarRoles"})
     public List<PermisosRoles> listar() {
         return permisosRolesService.listar();
     }

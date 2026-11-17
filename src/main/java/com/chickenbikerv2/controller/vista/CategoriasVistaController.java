@@ -43,8 +43,28 @@ public class CategoriasVistaController {
     }
 
     @PostMapping
-    public String guardar(@ModelAttribute CategoriasProductos categoria) {
-        categoriasService.guardar(categoria);
+    public String guardar(@ModelAttribute CategoriasProductos categoria, RedirectAttributes redirectAttributes) {
+        boolean esEdicion = categoria.getIdCategoriaProducto() > 0;
+        String rutaError = esEdicion ? "redirect:/categorias/editar/" + categoria.getIdCategoriaProducto()
+                : "redirect:/categorias";
+
+        if (categoria.getNombreCategoria() == null || categoria.getNombreCategoria().isBlank()) {
+            redirectAttributes.addFlashAttribute("error", "El nombre de la categoría es obligatorio.");
+            return rutaError;
+        }
+        categoria.setNombreCategoria(categoria.getNombreCategoria().trim());
+        // descripcion_categoria es NOT NULL en la base de datos
+        categoria.setDescripcionCategoria(categoria.getDescripcionCategoria() == null
+                ? "" : categoria.getDescripcionCategoria().trim());
+
+        try {
+            categoriasService.guardar(categoria);
+            redirectAttributes.addFlashAttribute("mensaje",
+                    esEdicion ? "Categoría actualizada correctamente." : "Categoría registrada correctamente.");
+        } catch (DataIntegrityViolationException e) {
+            redirectAttributes.addFlashAttribute("error", "No se pudo guardar la categoría. Verifica los datos.");
+            return rutaError;
+        }
         return "redirect:/categorias";
     }
 
