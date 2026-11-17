@@ -3,14 +3,14 @@
 <body>
 
 <aside class="sidebar" id="sidebar" th:fragment="sidebar"
-       th:with="sinSesion=${permisosSesion == null},
-                puedeMesas=${sinSesion or permisosSesion.contains('Gestionar mesas')},
-                puedePedidos=${sinSesion or permisosSesion.contains('Gestionar pedidos')},
-                puedeCaja=${sinSesion or permisosSesion.contains('Gestionar caja')},
-                puedeReportes=${sinSesion or permisosSesion.contains('Consultar reportes')},
-                puedeProductos=${sinSesion or permisosSesion.contains('Gestionar productos')},
-                puedeRoles=${sinSesion or permisosSesion.contains('Gestionar roles')},
-                esAdministrador=${sinSesion or nombreRolSesion == 'Administrador'}">
+       th:with="conSesion=${permisosSesion != null},
+                puedeMesas=${conSesion and permisosSesion.contains('Gestionar mesas')},
+                puedePedidos=${conSesion and permisosSesion.contains('Gestionar pedidos')},
+                puedeCaja=${conSesion and permisosSesion.contains('Gestionar caja')},
+                puedeReportes=${conSesion and permisosSesion.contains('Consultar reportes')},
+                puedeProductos=${conSesion and permisosSesion.contains('Gestionar productos')},
+                puedeRoles=${conSesion and permisosSesion.contains('Gestionar roles')},
+                esAdministrador=${nombreRolSesion == 'Administrador'}">
 
     <!-- Logo del Sidebar -->
     <div class="sidebar-logo">
@@ -29,10 +29,16 @@
             <i class="bi bi-house-door"></i><span>Dashboard</span>
         </a>
 
-        <a th:if="${puedeMesas}" th:href="@{/mesas}" class="nav-item"
-           th:classappend="${menuActivo == 'mesas'} ? 'active'" data-tooltip="Mesas">
-            <i class="bi bi-table"></i><span>Mesas</span>
-        </a>
+        <th:block th:if="${puedeMesas}">
+            <a th:href="@{/mesas}" class="nav-item"
+               th:classappend="${menuActivo == 'mesas'} ? 'active'" data-tooltip="Mesas">
+                <i class="bi bi-table"></i><span>Mesas</span>
+            </a>
+            <a th:href="@{/estados-mesas}" class="nav-item"
+               th:classappend="${menuActivo == 'estados-mesas'} ? 'active'" data-tooltip="Estados de mesa">
+                <i class="bi bi-ui-checks-grid"></i><span>Estados de mesa</span>
+            </a>
+        </th:block>
 
         <th:block th:if="${puedePedidos}">
             <a th:href="@{/pedidos/nuevo}" class="nav-item"
@@ -59,9 +65,9 @@
                 </a>
             </th:block>
 
-            <a th:if="${puedeReportes}" th:href="@{/facturas}" class="nav-item"
-               th:classappend="${menuActivo == 'facturas'} ? 'active'" data-tooltip="Facturas / Recibos">
-                <i class="bi bi-receipt-cutoff"></i><span>Facturas / Recibos</span>
+            <a th:if="${puedeReportes}" th:href="@{/recibos}" class="nav-item"
+               th:classappend="${menuActivo == 'recibos'} ? 'active'" data-tooltip="Recibos internos">
+                <i class="bi bi-receipt-cutoff"></i><span>Recibos internos</span>
             </a>
         </th:block>
 
@@ -108,7 +114,7 @@
                 <strong th:text="${session.usuarioSesion != null ? session.usuarioSesion.nombreUsuario + ' ' + session.usuarioSesion.apellidoUsuario : 'Usuario Chicken Biker'}">
                     Usuario Chicken Biker
                 </strong>
-                <span th:text="${nombreRolSesion != null ? nombreRolSesion : 'Administrador'}">Administrador</span>
+                <span th:text="${nombreRolSesion != null ? nombreRolSesion : ''}">Rol</span>
             </div>
         </div>
         <form method="post" th:action="@{/logout}" class="logout-form">

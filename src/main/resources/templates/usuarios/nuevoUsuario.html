@@ -88,10 +88,10 @@
 
                                 <div class="col-12 col-md-4">
                                     <label for="tipoDocumentoIdTipoDocumento" class="form-label">Tipo de documento <span class="form-required">*</span></label>
-                                    <select class="form-select" id="tipoDocumentoIdTipoDocumento" th:field="*{tipoDocumentoIdTipoDocumento}" required>
+                                    <select class="form-select" id="tipoDocumentoIdTipoDocumento" name="tipoDocumentoIdTipoDocumento" required>
                                         <option value="" disabled selected>Seleccione...</option>
                                         <option th:each="td : ${listaTiposDoc}"
-                                                th:value="${td.idTipoDocumento}"
+                                                th:value="${td.idTipoDocumento}" th:selected="${usuario.tipoDocumentoIdTipoDocumento == td.idTipoDocumento}"
                                                 th:text="${td.nombreTipoDocumento}">Tipo</option>
                                     </select>
                                 </div>
@@ -101,10 +101,10 @@
                                 </div>
                                 <div class="col-12 col-md-4">
                                     <label for="rolesIdRoles" class="form-label">Rol <span class="form-required">*</span></label>
-                                    <select class="form-select" id="rolesIdRoles" th:field="*{rolesIdRoles}" required>
+                                    <select class="form-select" id="rolesIdRoles" name="rolesIdRoles" required>
                                         <option value="" disabled selected>Seleccione...</option>
                                         <option th:each="rol : ${listaRoles}"
-                                                th:value="${rol.idRoles}"
+                                                th:value="${rol.idRoles}" th:selected="${usuario.rolesIdRoles == rol.idRoles}"
                                                 th:text="${rol.nombreRol}">Rol</option>
                                     </select>
                                 </div>

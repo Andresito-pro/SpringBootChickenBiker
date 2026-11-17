@@ -108,10 +108,10 @@
                                         Categoría <span class="form-required">*</span>
                                     </label>
                                     <select class="form-select" id="categoriaProductoIdCategoriaProducto"
-                                            th:field="*{categoriaProductoIdCategoriaProducto}" required>
-                                        <option value="">Selecciona una categoría...</option>
+                                            name="categoriaProductoIdCategoriaProducto" required>
+                                        <option value="" disabled selected>Selecciona una categoría...</option>
                                         <option th:each="cat : ${listaCategorias}"
-                                                th:value="${cat.idCategoriaProducto}"
+                                                th:value="${cat.idCategoriaProducto}" th:selected="${producto.categoriaProductoIdCategoriaProducto == cat.idCategoriaProducto}"
                                                 th:text="${cat.nombreCategoria}">Categoría</option>
                                     </select>
                                     <div class="form-text">Selecciona la categoría a la que pertenece el producto.</div>

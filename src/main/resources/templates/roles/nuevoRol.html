@@ -89,8 +89,13 @@
                                 <div class="col-12">
                                     <label for="nombreRol" class="form-label">Nombre del rol <span class="form-required">*</span></label>
                                     <input type="text" class="form-control" id="nombreRol" th:field="*{nombreRol}"
-                                           placeholder="Ej. Administrador" maxlength="100" required>
+                                           placeholder="Ej. Administrador" maxlength="45" required>
                                     <div class="form-text">Ingresa el nombre con el que se identificará el rol.</div>
+                                </div>
+                                <div class="col-12">
+                                    <label for="descripcionRol" class="form-label">Descripción</label>
+                                    <input type="text" class="form-control" id="descripcionRol" th:field="*{descripcionRol}"
+                                           placeholder="Ej. Control total del sistema" maxlength="45">
                                 </div>
                             </div>
 

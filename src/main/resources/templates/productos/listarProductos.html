@@ -160,7 +160,7 @@
 
                                 <div class="product-actions">
                                     <!-- Switch Toggle Activo / Inactivo -->
-                                    <form th:action="@{/productos/estado/{id}(id=${p.idProductos})}" method="post" class="d-inline">
+                                    <form th:action="@{/productos/cambiar-estado/{id}(id=${p.idProductos})}" method="post" class="d-inline">
                                         <label class="switch-toggle" title="Cambiar estado del Producto">
                                             <input type="checkbox"
                                                    th:checked="${p.activoProducto != null and p.activoProducto == 1}"

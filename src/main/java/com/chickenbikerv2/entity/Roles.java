@@ -14,10 +14,13 @@ public class Roles {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name="id_roles")
-    private int idRoles;
+    private Integer idRoles;
 
     @Column(name="nombre_rol")
     private String nombreRol;
+
+    @Column(name="descripcion_rol")
+    private String descripcionRol;
 
 }
 

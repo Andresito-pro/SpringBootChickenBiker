@@ -100,10 +100,10 @@
                                 <div class="col-12 col-md-6">
                                     <label for="estadoMesaIdEstadoMesa" class="form-label">Estado <span class="form-required">*</span></label>
                                     <select class="form-select" id="estadoMesaIdEstadoMesa"
-                                            th:field="*{estadoMesaIdEstadoMesa}" required>
+                                            name="estadoMesaIdEstadoMesa" required>
                                         <option value="" disabled>Selecciona un estado</option>
                                         <option th:each="em : ${listaEstadosMesas}"
-                                                th:value="${em.idEstadoMesa}"
+                                                th:value="${em.idEstadoMesa}" th:selected="${mesa.estadoMesaIdEstadoMesa == em.idEstadoMesa}"
                                                 th:text="${em.nombreEstadoMesa}">Estado</option>
                                     </select>
                                 </div>

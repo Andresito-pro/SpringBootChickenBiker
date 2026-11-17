@@ -1,8 +1,11 @@
 package com.chickenbikerv2.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.format.annotation.DateTimeFormat;
+
 import java.time.LocalDate;
 
 @Entity
@@ -27,18 +30,22 @@ public class Usuarios {
     @Column(name = "correo_usuario")
     private String correoUsuario;
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(name = "password_usuario")
     private String passwordUsuario;
 
     @Column(name = "telefono_usuario")
     private String telefonoUsuario;
 
+    // Formato ISO (yyyy-MM-dd) que envía <input type="date">.
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     @Column(name = "fecha_nacimiento")
     private LocalDate fechaNacimiento;
 
     @Column(name = "direccion_usuario")
     private String direccionUsuario;
 
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     @Column(name = "fecha_vencimiento")
     private LocalDate fechaVencimiento;
 

@@ -12,6 +12,16 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Registro y consulta de pedidos.
+ *
+ * Al registrar un pedido (en una sola transacción, como PedidoServlet):
+ *  1. Se exige una caja abierta.
+ *  2. Pedido en mesa: la mesa debe estar disponible y queda ocupada.
+ *     Pedido para llevar: no se consulta ni se modifica ninguna mesa (mesa NULL).
+ *  3. Se guardan el pedido, su detalle (detalles_pedidos_venta), la cabecera del
+ *     recibo interno en estado "Generado" asociada al turno de caja, y su cuerpo.
+ */
 @Service
 @RequiredArgsConstructor
 public class PedidosService {
@@ -24,26 +34,35 @@ public class PedidosService {
 
     public static final int ESTADO_MESA_DISPONIBLE = 1;
     public static final int ESTADO_MESA_OCUPADA = 2;
+    public static final int ESTADO_MESA_RESERVADA = 3;
+    public static final int ESTADO_MESA_INACTIVA = 4;
 
+    /** estados_recibos: 1 = Generado (pendiente de cobro), 2 = Pagado. */
+    public static final int ESTADO_RECIBO_GENERADO = 1;
+    public static final int ESTADO_RECIBO_PAGADO = 2;
+
+    /**
+     * Método de pago placeholder (inactivo) creado por el script de la fase 3:
+     * la columna metodo_pago_id_metodo_pago es NOT NULL y el método real se
+     * conoce recién al cobrar.
+     */
     public static final int METODO_PAGO_PENDIENTE_ID = 5;
-    public static final int TIPO_MOVIMIENTO_INGRESO_ID = 1;
+    public static final int TIPO_MOVIMIENTO_INGRESO_ID = MovimientosCajaService.TIPO_MOV_INGRESO;
 
     private final PedidosVentasRepository pedidosVentasRepository;
+    private final DetallesPedidosVentaRepository detallesPedidosVentaRepository;
     private final ProductosRepository productosRepository;
     private final MesasRepository mesasRepository;
     private final CabecerasRecibosRepository cabecerasRecibosRepository;
     private final CuerposRecibosRepository cuerposRecibosRepository;
-    private final AperturasCierresCajaRepository aperturasCierresCajaRepository;
+    private final AperturasCierresCajaService aperturasCierresCajaService;
 
-    @Transactional(readOnly = true)
     public boolean hayCajaAbierta() {
-        return obtenerCajaAbierta().isPresent();
+        return aperturasCierresCajaService.hayCajaAbierta();
     }
 
-    @Transactional(readOnly = true)
     public Optional<AperturasCierresCaja> obtenerCajaAbierta() {
-        return aperturasCierresCajaRepository
-                .findFirstByEstadoCierreCajaIgnoreCaseOrderByFechaAperturaDesc("Abierta");
+        return aperturasCierresCajaService.consultarCajaAbierta();
     }
 
     @Transactional(readOnly = true)
@@ -71,6 +90,13 @@ public class PedidosService {
                 ));
     }
 
+    /** Número visible de cada mesa (las vistas muestran el número, no el id). */
+    @Transactional(readOnly = true)
+    public Map<Integer, Integer> obtenerMapaNumerosMesa() {
+        return mesasRepository.findAll().stream()
+                .collect(Collectors.toMap(Mesas::getIdMesa, Mesas::getNumeroMesa, (a, b) -> a));
+    }
+
     @Transactional(readOnly = true)
     public Map<String, Object> obtenerDetallePedido(int idPedido) {
         PedidosVentas pedido = pedidosVentasRepository.findById(idPedido)
@@ -96,6 +122,8 @@ public class PedidosService {
         resultado.put("recibo", recibo);
         resultado.put("detalles", detalles);
         resultado.put("nombresProductos", nombresProductos);
+        resultado.put("numeroMesa", pedido.getMesaIdMesa() == null ? null
+                : mesasRepository.findById(pedido.getMesaIdMesa()).map(Mesas::getNumeroMesa).orElse(null));
         return resultado;
     }
 
@@ -105,31 +133,17 @@ public class PedidosService {
                                          List<Integer> productosIds,
                                          List<Integer> cantidades,
                                          int idUsuario) {
-        if (!hayCajaAbierta()) {
-            throw new IllegalStateException("No hay una caja abierta. Abre la caja antes de registrar un pedido.");
-        }
+
+        // 1. Caja abierta (con bloqueo de la caja 1 para no competir con un cierre simultáneo)
+        AperturasCierresCaja cajaAbierta = aperturasCierresCajaService.bloquearYConsultarCajaAbierta()
+                .orElseThrow(() -> new IllegalStateException(
+                        "No hay una caja abierta. Abre la caja antes de registrar un pedido."));
 
         String tipoNormalizado = TIPO_PARA_LLEVAR.equalsIgnoreCase(tipoPedido != null ? tipoPedido.trim() : "")
                 ? TIPO_PARA_LLEVAR
                 : TIPO_MESA;
 
-        Integer mesaAsignada = null;
-        if (TIPO_MESA.equals(tipoNormalizado)) {
-            if (mesaId == null || mesaId <= 0) {
-                throw new IllegalArgumentException("Debes seleccionar una mesa disponible.");
-            }
-            Mesas mesa = mesasRepository.findById(mesaId)
-                    .orElseThrow(() -> new IllegalArgumentException("La mesa seleccionada no existe."));
-
-            if (mesa.getEstadoMesaIdEstadoMesa() != ESTADO_MESA_DISPONIBLE) {
-                throw new IllegalStateException("La Mesa " + mesa.getNumeroMesa() + " no está disponible.");
-            }
-
-            mesa.setEstadoMesaIdEstadoMesa(ESTADO_MESA_OCUPADA);
-            mesasRepository.save(mesa);
-            mesaAsignada = mesa.getIdMesa();
-        }
-
+        // 2. Productos y cantidades
         if (productosIds == null || cantidades == null || productosIds.isEmpty()
                 || productosIds.size() != cantidades.size()) {
             throw new IllegalArgumentException("Debes agregar al menos un producto válido al pedido.");
@@ -144,12 +158,12 @@ public class PedidosService {
                 itemsConsolidados.merge(idProd, cant, Integer::sum);
             }
         }
-
         if (itemsConsolidados.isEmpty()) {
             throw new IllegalArgumentException("Las cantidades de los productos deben ser mayores a cero.");
         }
 
         BigDecimal totalPedido = BigDecimal.ZERO;
+        List<DetallesPedidosVenta> lineasPedido = new ArrayList<>();
         List<CuerposRecibos> lineasRecibo = new ArrayList<>();
 
         for (Map.Entry<Integer, Integer> entry : itemsConsolidados.entrySet()) {
@@ -158,7 +172,6 @@ public class PedidosService {
 
             Productos producto = productosRepository.findById(idProducto)
                     .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado (ID: " + idProducto + ")."));
-
             if (producto.getActivoProducto() == null || producto.getActivoProducto() != 1) {
                 throw new IllegalStateException("El producto '" + producto.getNombrePlato() + "' no está disponible.");
             }
@@ -166,6 +179,13 @@ public class PedidosService {
             BigDecimal precioUnitario = producto.getPrecioVenta();
             BigDecimal subTotal = precioUnitario.multiply(BigDecimal.valueOf(cantidad));
             totalPedido = totalPedido.add(subTotal);
+
+            DetallesPedidosVenta detalle = new DetallesPedidosVenta();
+            detalle.setProductosIdProductos(producto.getIdProductos());
+            detalle.setCantidad(cantidad);
+            detalle.setPrecioUnitario(precioUnitario);
+            detalle.setSubtotal(subTotal);
+            lineasPedido.add(detalle);
 
             CuerposRecibos cuerpo = new CuerposRecibos();
             cuerpo.setProductosIdProductos(producto.getIdProductos());
@@ -175,8 +195,25 @@ public class PedidosService {
             lineasRecibo.add(cuerpo);
         }
 
+        // 3. Mesa: solo para pedidos en mesa (bloqueada para que dos meseros no la tomen a la vez)
+        Integer mesaAsignada = null;
+        if (TIPO_MESA.equals(tipoNormalizado)) {
+            if (mesaId == null || mesaId <= 0) {
+                throw new IllegalArgumentException("Debes seleccionar una mesa disponible o elegir \"Para llevar\".");
+            }
+            Mesas mesa = mesasRepository.bloquearPorId(mesaId)
+                    .orElseThrow(() -> new IllegalArgumentException("La mesa seleccionada no existe."));
+            if (mesa.getEstadoMesaIdEstadoMesa() != ESTADO_MESA_DISPONIBLE) {
+                throw new IllegalStateException(mensajeMesaNoDisponible(mesa));
+            }
+            mesa.setEstadoMesaIdEstadoMesa(ESTADO_MESA_OCUPADA);
+            mesasRepository.save(mesa);
+            mesaAsignada = mesa.getIdMesa();
+        }
+
         LocalDateTime ahora = LocalDateTime.now();
 
+        // 4. Pedido
         PedidosVentas pedido = new PedidosVentas();
         pedido.setFechaPedido(ahora);
         pedido.setTipoPedido(tipoNormalizado);
@@ -186,15 +223,20 @@ public class PedidosService {
         pedido.setEstadoPedidoIdEstado(ESTADO_PEDIDO_PENDIENTE);
         pedido = pedidosVentasRepository.save(pedido);
 
+        for (DetallesPedidosVenta detalle : lineasPedido) {
+            detalle.setPedidoVentaIdPedidoVenta(pedido.getIdPedidoVenta());
+        }
+        detallesPedidosVentaRepository.saveAll(lineasPedido);
+
+        // 5. Recibo interno (no es factura electrónica): queda "Generado" hasta el cobro
         CabecerasRecibos recibo = new CabecerasRecibos();
-        recibo.setNumeroRecibo("TEMP");
+        recibo.setNumeroRecibo("REC-" + pedido.getIdPedidoVenta());
         recibo.setFechaEmision(ahora);
         recibo.setTotalGeneral(totalPedido);
         recibo.setPedidoVentaIdPedidoVenta(pedido.getIdPedidoVenta());
+        recibo.setEstadoReciboIdEstadoRecibo(ESTADO_RECIBO_GENERADO);
         recibo.setMetodoPagoIdMetodoPago(METODO_PAGO_PENDIENTE_ID);
-        recibo = cabecerasRecibosRepository.save(recibo);
-
-        recibo.setNumeroRecibo("REC-" + recibo.getIdCabeceraRecibo());
+        recibo.setAperturaCierreCajaIdAperturaCierreCaja(cajaAbierta.getIdAperturaCierreCaja());
         recibo = cabecerasRecibosRepository.save(recibo);
 
         for (CuerposRecibos cuerpo : lineasRecibo) {
@@ -203,5 +245,14 @@ public class PedidosService {
         cuerposRecibosRepository.saveAll(lineasRecibo);
 
         return pedido;
+    }
+
+    private static String mensajeMesaNoDisponible(Mesas mesa) {
+        return switch (mesa.getEstadoMesaIdEstadoMesa()) {
+            case ESTADO_MESA_OCUPADA -> "La mesa " + mesa.getNumeroMesa() + " está ocupada.";
+            case ESTADO_MESA_RESERVADA -> "La mesa " + mesa.getNumeroMesa() + " está reservada.";
+            case ESTADO_MESA_INACTIVA -> "La mesa " + mesa.getNumeroMesa() + " está inactiva.";
+            default -> "La mesa " + mesa.getNumeroMesa() + " no está disponible.";
+        };
     }
 }

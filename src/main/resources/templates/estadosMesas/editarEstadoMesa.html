@@ -93,7 +93,14 @@
                                 <div class="col-12 col-md-6">
                                     <label for="nombreEstadoMesa" class="form-label">Nombre del estado <span class="form-required">*</span></label>
                                     <input type="text" class="form-control" id="nombreEstadoMesa"
-                                           th:field="*{nombreEstadoMesa}" maxlength="100" required>
+                                           th:field="*{nombreEstadoMesa}" maxlength="45" required>
+                                </div>
+
+                                <!-- DESCRIPCIÓN -->
+                                <div class="col-12 order-md-last">
+                                    <label for="descripcionEstadoMesa" class="form-label">Descripción</label>
+                                    <input type="text" class="form-control" id="descripcionEstadoMesa"
+                                           th:field="*{descripcionEstadoMesa}" maxlength="45">
                                 </div>
 
                                 <!-- ESTADO ACTIVO -->

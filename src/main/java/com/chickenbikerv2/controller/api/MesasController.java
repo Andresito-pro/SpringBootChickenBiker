@@ -20,7 +20,7 @@ public class MesasController {
         this.mesasService = mesasService;
     }
 
-    @GetMapping("/listarRoles")
+    @GetMapping({"/listar", "/listarRoles"})
     public List<Mesas> listar() {
         return mesasService.listar();
     }

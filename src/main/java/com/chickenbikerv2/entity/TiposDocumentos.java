@@ -17,4 +17,7 @@ public class TiposDocumentos {
     @Column(name = "nombre_tipo_documento")
     private String nombreTipoDocumento;
 
+    @Column(name = "descripcion_tipo_documento")
+    private String descripcionTipoDocumento;
+
 }

@@ -69,6 +69,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
                 </div>
 
+                <div th:if="${mensaje != null}" class="alert alert-cb alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle-fill alert-cb-icon"></i>
+                    <div class="alert-cb-body" th:text="${mensaje}"></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+
                 <div data-filter-scope>
 
                     <!-- CABECERA SUPERIOR: Buscador y Botón Agregar -->

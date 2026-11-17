@@ -17,6 +17,9 @@ public class EstadosMesas {
     @Column(name = "nombre_estado_mesa")
     private String nombreEstadoMesa;
 
+    // Columna NOT NULL existente en la tabla (la usaba el DAO original).
+    @Column(name = "descripcion_estado_mesa")
+    private String descripcionEstadoMesa;
 
     @Column(name = "activo_estado_mesa")
     private Byte activoEstadoMesa;
