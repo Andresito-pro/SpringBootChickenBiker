@@ -2,6 +2,7 @@ package com.chickenbikerv2.controller.vista;
 
 import com.chickenbikerv2.entity.AperturasCierresCaja;
 import com.chickenbikerv2.entity.Usuarios;
+import com.chickenbikerv2.security.SesionUsuario;
 import com.chickenbikerv2.service.AperturasCierresCajaService;
 import com.chickenbikerv2.service.MovimientosCajaService;
 import com.chickenbikerv2.service.UsuariosService;
@@ -105,13 +106,13 @@ public class CajaVistaController {
         AperturasCierresCaja abierta = optAbierta.get();
         BigDecimal ingresos = movimientosCajaService.sumarIngresosPorTurno(abierta.getIdAperturaCierreCaja());
         BigDecimal egresos = movimientosCajaService.sumarEgresosPorTurno(abierta.getIdAperturaCierreCaja());
-        BigDecimal montoSistema = abierta.getMontoInicial().add(ingresos).subtract(egresos);
+        BigDecimal montoSistema = aperturasCierresCajaService.calcularMontoSistema(abierta);
 
         model.addAttribute("caja", abierta);
         model.addAttribute("totalIngresos", ingresos);
         model.addAttribute("totalEgresos", egresos);
         model.addAttribute("montoSistema", montoSistema);
-        model.addAttribute("usuarios", usuariosService.listar());
+        model.addAttribute("usuarios", usuariosService.listarActivos());
         model.addAttribute("menuActivo", "caja");
         return "caja/cerrarCaja";
     }
@@ -125,9 +126,10 @@ public class CajaVistaController {
             return "redirect:/caja/cerrar";
         }
 
-        Optional<Usuarios> optUsuario = usuariosService.buscarPorId(idUsuarioCierre);
+        Optional<Usuarios> optUsuario = usuariosService.buscarPorId(idUsuarioCierre)
+                .filter(u -> u.getEstadosUsuariosIdEstadosUsuarios() == UsuariosService.ESTADO_ACTIVO);
         if (optUsuario.isEmpty()) {
-            redirectAttributes.addFlashAttribute("error", "El usuario seleccionado para cerrar caja no existe.");
+            redirectAttributes.addFlashAttribute("error", "El usuario seleccionado para cerrar caja no es válido o está inactivo.");
             return "redirect:/caja/cerrar";
         }
 
@@ -141,8 +143,12 @@ public class CajaVistaController {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             return "redirect:/caja/cerrar";
         } catch (IllegalStateException e) {
-            if ("NO_HAY_CAJA_ABIERTA".equals(e.getMessage())) {
+            if (AperturasCierresCajaService.ERROR_NO_HAY_CAJA_ABIERTA.equals(e.getMessage())) {
                 redirectAttributes.addFlashAttribute("advertencia", advertenciaSinCajaAbierta());
+                return "redirect:/caja/advertencia";
+            }
+            if (AperturasCierresCajaService.ERROR_RECIBOS_PENDIENTES.equals(e.getMessage())) {
+                redirectAttributes.addFlashAttribute("advertencia", advertenciaPorRegla("recibos pendientes de cobro"));
                 return "redirect:/caja/advertencia";
             }
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -162,12 +168,10 @@ public class CajaVistaController {
         return "caja/advertenciaCaja";
     }
 
+    /** Usuario autenticado que realiza la operación (nunca un usuario "por defecto"). */
     private int obtenerIdUsuarioOperacion(HttpSession session) {
-        if (session != null && session.getAttribute("usuarioSesion") instanceof Usuarios u) {
-            return u.getIdUsuario();
-        }
-        List<Usuarios> usuarios = usuariosService.listar();
-        return usuarios.isEmpty() ? 0 : usuarios.get(0).getIdUsuario();
+        Usuarios usuario = SesionUsuario.obtener(session);
+        return usuario != null ? usuario.getIdUsuario() : 0;
     }
 
     // ------------------------------------------------------------------

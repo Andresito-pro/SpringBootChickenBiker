@@ -20,7 +20,7 @@ public class CajasController {
         this.cajasService = cajasService;
     }
 
-    @GetMapping("/listarRoles")
+    @GetMapping({"/listar", "/listarRoles"})
     public List<Cajas> listar() {
         return cajasService.listar();
     }

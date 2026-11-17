@@ -4,13 +4,18 @@ import com.chickenbikerv2.entity.AperturasCierresCaja;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface AperturasCierresCajaRepository extends JpaRepository<AperturasCierresCaja, Integer> {
 
-    Optional<AperturasCierresCaja> findFirstByCajaIdCajaAndEstadoCierreCajaIgnoreCaseOrderByIdAperturaCierreCajaDesc(
-            int cajaIdCaja, String estadoCierreCaja);
+    Optional<AperturasCierresCaja> findFirstByCajaIdCajaAndEstadoCierreCajaInOrderByIdAperturaCierreCajaDesc(
+            int cajaIdCaja, Collection<String> estadosAbierta);
 
-    Optional<AperturasCierresCaja> findFirstByEstadoCierreCajaIgnoreCaseOrderByFechaAperturaDesc(String estadoCierreCaja);
+    boolean existsByCajaIdCajaAndFechaAperturaBetween(int cajaIdCaja, LocalDateTime desde, LocalDateTime hasta);
+
+    List<AperturasCierresCaja> findAllByOrderByFechaAperturaDesc();
 }
