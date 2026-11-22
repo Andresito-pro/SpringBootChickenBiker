@@ -69,6 +69,7 @@
         var inputHasta = document.getElementById('ventasHasta');
         var botones = tarjeta.querySelectorAll('[data-rango]');
         var tabla = document.getElementById('ventasTabla');
+        var indicador = document.getElementById('ventasCargando');
 
         var grafica = null;
         var peticion = null;
@@ -110,7 +111,10 @@
             }
             peticion = new AbortController();
             ocultarError();
+            // Consulta corta: indicador discreto junto a los filtros, no la
+            // pantalla de carga global (ui.js).
             contenedor.classList.add('is-cargando');
+            indicador.classList.remove('d-none');
 
             var url = endpoint + '?' + new URLSearchParams(parametros).toString();
             fetch(url, {
@@ -148,7 +152,9 @@
                     mostrarError(error.message || 'No fue posible consultar las ventas.');
                 })
                 .finally(function () {
+                    // Siempre se retira, haya éxito, error o cancelación.
                     contenedor.classList.remove('is-cargando');
+                    indicador.classList.add('d-none');
                 });
         }
 

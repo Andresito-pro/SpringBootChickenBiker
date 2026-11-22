@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" th:href="@{/css/ui.css}">
 </head>
 <body>
 
@@ -194,7 +195,7 @@
                                              aria-hidden="true">
                                             <div class="modal-dialog modal-dialog-centered">
                                                 <div class="modal-content">
-                                                    <form th:action="@{/pagos/cobrar}" method="post" class="form-cb">
+                                                    <form th:action="@{/pagos/cobrar}" method="post" class="form-cb" data-texto-carga="Registrando pago…">
                                                         <div class="modal-header">
                                                             <h5 class="modal-title" th:text="'Cobrar Pedido #' + ${pedido.idPedidoVenta}"></h5>
                                                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -259,6 +260,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/ui.js}"></script>
 <script th:src="@{/js/common.js}"></script>
 <script th:src="@{/js/filtros.js}"></script>
 </body>

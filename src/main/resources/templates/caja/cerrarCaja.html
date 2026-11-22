@@ -16,6 +16,7 @@
 
     <!-- Estilos de Chicken Biker -->
     <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" th:href="@{/css/ui.css}">
 </head>
 <body>
 
@@ -135,7 +136,7 @@
                             </div>
                         </div>
                         <div class="card-cb-body">
-                            <form method="post" th:action="@{/caja/cerrar}" class="form-cb">
+                            <form method="post" th:action="@{/caja/cerrar}" class="form-cb" data-texto-carga="Cerrando caja…">
 
                                 <div class="mb-3">
                                     <label for="idUsuarioCierre" class="form-label">Usuario Responsable</label>
@@ -162,7 +163,7 @@
                                 </div>
 
                                 <div class="d-grid gap-2">
-                                    <button type="submit" data-confirm="¿Confirma el cierre de caja? Esta acción finalizará el turno actual." class="btn-cb btn-cb-danger">
+                                    <button type="submit" data-confirm="¿Confirma el cierre de caja? Esta acción finalizará el turno actual." data-confirm-titulo="Cerrar caja" data-confirm-aceptar="Sí, cerrar caja" class="btn-cb btn-cb-danger">
                                         <i class="bi bi-lock me-2"></i> Confirmar y Cerrar Caja
                                     </button>
                                     <a th:href="@{/caja}" class="btn-cb btn-cb-secondary">
@@ -182,6 +183,7 @@
 
 <!-- Bootstrap 5 JS Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/ui.js}"></script>
 <script th:src="@{/js/common.js}"></script>
 </body>
 </html>

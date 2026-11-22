@@ -16,6 +16,7 @@
 
     <!-- Estilos de Chicken Biker -->
     <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" th:href="@{/css/ui.css}">
 </head>
 <body>
 
@@ -178,7 +179,7 @@
                                     <!-- Eliminar -->
                                     <form method="post" th:action="@{/productos/eliminar/{id}(id=${p.idProductos})}">
                                         <button type="submit" class="btn-cb btn-cb-icon btn-cb-danger" title="Eliminar Producto"
-                                                data-confirm="¿Seguro que deseas eliminar este producto?">
+                                                data-confirm="¿Seguro que deseas eliminar este producto?" data-confirm-titulo="Eliminar producto" data-confirm-aceptar="Eliminar">
                                             <i class="bi bi-trash3"></i>
                                         </button>
                                     </form>
@@ -206,6 +207,7 @@
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/ui.js}"></script>
 <script th:src="@{/js/common.js}"></script>
 <script th:src="@{/js/filtros.js}"></script>
 </body>

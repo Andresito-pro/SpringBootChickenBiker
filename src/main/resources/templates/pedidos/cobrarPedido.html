@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" th:href="@{/css/ui.css}">
 </head>
 <body>
 
@@ -120,7 +121,7 @@
                                     <form th:id="'formCobro_' + ${recibo.idCabeceraRecibo}"
                                           th:action="@{/pagos/cobrar}"
                                           method="post"
-                                          class="form-cb form-cb-inline">
+                                          class="form-cb form-cb-inline" data-texto-carga="Registrando pago…">
                                         <input type="hidden" name="origen" value="pagos">
                                         <input type="hidden" name="idCabeceraRecibo" th:value="${recibo.idCabeceraRecibo}">
 
@@ -169,6 +170,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/ui.js}"></script>
 <script th:src="@{/js/common.js}"></script>
 <script th:src="@{/js/filtros.js}"></script>
 </body>
