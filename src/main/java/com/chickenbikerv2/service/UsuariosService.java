@@ -2,12 +2,12 @@ package com.chickenbikerv2.service;
 
 import com.chickenbikerv2.entity.Usuarios;
 import com.chickenbikerv2.repository.UsuariosRepository;
+import com.chickenbikerv2.security.PoliticaContrasena;
 import com.chickenbikerv2.security.UsuarioDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,10 +16,6 @@ public class UsuariosService {
 
     public static final int ESTADO_ACTIVO = UsuarioDetailsService.ESTADO_USUARIO_ACTIVO;
     public static final int ESTADO_INACTIVO = 2;
-
-    /** BCrypt solo usa los primeros 72 bytes; se rechazan contraseñas más largas. */
-    private static final int MAX_BYTES_CONTRASENA = 72;
-    private static final int MIN_LONGITUD_CONTRASENA = 6;
 
     private final UsuariosRepository usuariosRepository;
     private final PasswordEncoder passwordEncoder;
@@ -70,7 +66,9 @@ public class UsuariosService {
                 .orElseThrow(() -> new IllegalArgumentException("El usuario que intentas actualizar no existe."));
 
         String nueva = datos.getPasswordUsuario();
-        if (nueva == null || nueva.isBlank()) {
+        // Campo vacío = conservar la contraseña actual. Una contraseña de solo
+        // espacios NO se trata como vacía: se valida y se rechaza.
+        if (nueva == null || nueva.isEmpty()) {
             datos.setPasswordUsuario(actual.getPasswordUsuario());
         } else {
             validarContrasena(nueva);
@@ -118,16 +116,8 @@ public class UsuariosService {
         return copia;
     }
 
+    /** Política de contraseñas seguras (ver PoliticaContrasena), aplicada en el servidor. */
     private void validarContrasena(String contrasena) {
-        if (contrasena == null || contrasena.isBlank()) {
-            throw new IllegalArgumentException("La contraseña es obligatoria.");
-        }
-        if (contrasena.length() < MIN_LONGITUD_CONTRASENA) {
-            throw new IllegalArgumentException(
-                    "La contraseña debe tener al menos " + MIN_LONGITUD_CONTRASENA + " caracteres.");
-        }
-        if (contrasena.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES_CONTRASENA) {
-            throw new IllegalArgumentException("La contraseña es demasiado larga (máximo 72 bytes).");
-        }
+        PoliticaContrasena.validar(contrasena);
     }
 }

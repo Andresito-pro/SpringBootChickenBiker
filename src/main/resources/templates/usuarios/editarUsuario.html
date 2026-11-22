@@ -118,8 +118,18 @@
                                 </div>
                                 <div class="col-12 col-md-6">
                                     <label for="passwordUsuario" class="form-label">Contraseña</label>
-                                    <input type="password" class="form-control" id="passwordUsuario" name="passwordUsuario" placeholder="••••••••">
-                                    <div class="form-text">Déjala en blanco para conservar la actual.</div>
+                                    <input type="password" class="form-control" id="passwordUsuario" name="passwordUsuario" placeholder="••••••••"
+                                           autocomplete="new-password" data-politica-contrasena data-contrasena-opcional
+                                           aria-describedby="contrasenaAyuda requisitosContrasena contrasenaFeedback">
+                                    <div class="invalid-feedback" id="contrasenaFeedback" aria-live="polite"></div>
+                                    <div class="form-text" id="contrasenaAyuda">Déjala en blanco para conservar la actual. Si la cambias, debe cumplir:</div>
+                                    <ul class="list-unstyled small mt-1 mb-0" id="requisitosContrasena" aria-label="Requisitos de la contraseña">
+                                        <li class="text-muted" data-requisito="longitud" data-texto="mínimo 8 caracteres"><i class="bi bi-circle me-1"></i>Mínimo 8 caracteres<span class="visually-hidden"> (pendiente)</span></li>
+                                        <li class="text-muted" data-requisito="mayuscula" data-texto="una letra mayúscula"><i class="bi bi-circle me-1"></i>Una letra mayúscula<span class="visually-hidden"> (pendiente)</span></li>
+                                        <li class="text-muted" data-requisito="minuscula" data-texto="una letra minúscula"><i class="bi bi-circle me-1"></i>Una letra minúscula<span class="visually-hidden"> (pendiente)</span></li>
+                                        <li class="text-muted" data-requisito="numero" data-texto="un número"><i class="bi bi-circle me-1"></i>Un número<span class="visually-hidden"> (pendiente)</span></li>
+                                        <li class="text-muted" data-requisito="especial" data-texto="un carácter especial"><i class="bi bi-circle me-1"></i>Un carácter especial (p. ej. ! @ # $ % . -)<span class="visually-hidden"> (pendiente)</span></li>
+                                    </ul>
                                 </div>
 
                                 <div class="col-12 col-md-6">
@@ -186,5 +196,6 @@
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script th:src="@{/js/common.js}"></script>
+<script th:src="@{/js/validacionContrasena.js}"></script>
 </body>
 </html>

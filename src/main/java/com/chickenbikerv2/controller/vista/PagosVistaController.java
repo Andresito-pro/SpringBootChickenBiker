@@ -37,7 +37,11 @@ public class PagosVistaController {
             return "redirect:/login";
         }
 
-        String rutaDestino = "pedidos".equalsIgnoreCase(origen) ? "redirect:/pedidos" : "redirect:/pagos";
+        String rutaDestino = switch (origen.toLowerCase()) {
+            case "pedidos" -> "redirect:/pedidos";
+            case "dashboard" -> "redirect:/dashboard"; // cobro desde el dashboard del cajero
+            default -> "redirect:/pagos";
+        };
 
         try {
             CabecerasRecibos recibo = pagosService.cobrarRecibo(
