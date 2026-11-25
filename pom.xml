@@ -92,7 +92,7 @@
             <artifactId>spring-boot-starter-security-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Base de datos en memoria SOLO para pruebas (no afecta a MySQL) -->
+
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
