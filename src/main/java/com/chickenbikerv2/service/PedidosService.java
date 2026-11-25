@@ -56,6 +56,7 @@ public class PedidosService {
     private final CabecerasRecibosRepository cabecerasRecibosRepository;
     private final CuerposRecibosRepository cuerposRecibosRepository;
     private final AperturasCierresCajaService aperturasCierresCajaService;
+    private final CatalogoEstadosService catalogoEstadosService;
 
     public boolean hayCajaAbierta() {
         return aperturasCierresCajaService.hayCajaAbierta();
@@ -75,19 +76,48 @@ public class PedidosService {
         return productosRepository.findByActivoProductoOrderByNombrePlatoAsc((byte) 1);
     }
 
+    /**
+     * Pedidos visibles para el usuario autenticado. La restricción se aplica en
+     * la CONSULTA: sin el permiso "Ver todos los pedidos" (meseros) solo se
+     * obtienen los pedidos que registró el propio usuario. {@code idUsuario}
+     * sale siempre de la sesión del servidor, nunca de un parámetro del cliente.
+     */
     @Transactional(readOnly = true)
-    public List<PedidosVentas> listarPedidos() {
-        return pedidosVentasRepository.findAllByOrderByFechaPedidoDesc();
+    public List<PedidosVentas> listarPedidos(int idUsuario, boolean verTodos) {
+        return verTodos
+                ? pedidosVentasRepository.findAllByOrderByFechaPedidoDesc()
+                : pedidosVentasRepository.findByUsuarioIdUsuarioOrderByFechaPedidoDesc(idUsuario);
     }
 
+    /** Recibo de cada pedido del listado (solo de los pedidos recibidos, no de todos). */
     @Transactional(readOnly = true)
-    public Map<Integer, CabecerasRecibos> obtenerMapaRecibosPorPedido() {
+    public Map<Integer, CabecerasRecibos> obtenerMapaRecibosPorPedido(Collection<PedidosVentas> pedidos) {
+        Set<Integer> ids = pedidos.stream().map(PedidosVentas::getIdPedidoVenta).collect(Collectors.toSet());
         return cabecerasRecibosRepository.findAll().stream()
+                .filter(r -> ids.contains(r.getPedidoVentaIdPedidoVenta()))
                 .collect(Collectors.toMap(
                         CabecerasRecibos::getPedidoVentaIdPedidoVenta,
                         Function.identity(),
                         (existente, reemplazo) -> reemplazo
                 ));
+    }
+
+    /** Ids de los pedidos en estado Anulado (los recibos no cambian de estado al anular). */
+    @Transactional(readOnly = true)
+    public Set<Integer> idsPedidosAnulados() {
+        return new HashSet<>(pedidosVentasRepository.idsPorEstado(catalogoEstadosService.idEstadoPedidoAnuladoOSinDefinir()));
+    }
+
+    /**
+     * Pedido individual con la misma regla de visibilidad que el listado. Si el
+     * usuario no puede verlo, se responde igual que si no existiera (no se
+     * revela la existencia de pedidos de otros meseros).
+     */
+    @Transactional(readOnly = true)
+    public Optional<PedidosVentas> buscarPedidoVisible(int idPedido, int idUsuario, boolean verTodos) {
+        return verTodos
+                ? pedidosVentasRepository.findById(idPedido)
+                : pedidosVentasRepository.findByIdPedidoVentaAndUsuarioIdUsuario(idPedido, idUsuario);
     }
 
     /** Número visible de cada mesa (las vistas muestran el número, no el id). */
@@ -98,8 +128,8 @@ public class PedidosService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> obtenerDetallePedido(int idPedido) {
-        PedidosVentas pedido = pedidosVentasRepository.findById(idPedido)
+    public Map<String, Object> obtenerDetallePedido(int idPedido, int idUsuario, boolean verTodos) {
+        PedidosVentas pedido = buscarPedidoVisible(idPedido, idUsuario, verTodos)
                 .orElseThrow(() -> new IllegalArgumentException("El pedido #" + idPedido + " no existe."));
 
         CabecerasRecibos recibo = cabecerasRecibosRepository
@@ -124,6 +154,8 @@ public class PedidosService {
         resultado.put("nombresProductos", nombresProductos);
         resultado.put("numeroMesa", pedido.getMesaIdMesa() == null ? null
                 : mesasRepository.findById(pedido.getMesaIdMesa()).map(Mesas::getNumeroMesa).orElse(null));
+        resultado.put("idEstadoAnulado", catalogoEstadosService.idEstadoPedidoAnuladoOSinDefinir());
+        resultado.put("nombresEstadosPedido", catalogoEstadosService.nombresEstadosPedido());
         return resultado;
     }
 
@@ -244,6 +276,8 @@ public class PedidosService {
         }
         cuerposRecibosRepository.saveAll(lineasRecibo);
 
+        // La campana de Administrador / Cajero deriva sus avisos de pedidos_ventas
+        // (NotificacionesService): no hay que registrar nada más aquí.
         return pedido;
     }
 

@@ -49,17 +49,7 @@
                 </div>
             </div>
 
-            <div class="topbar-right">
-                <button class="cash-btn" id="cashToggleBtn" type="button" th:data-open="${caja != null}">
-                    <span class="cash-indicator"></span>
-                    <span class="cash-label" th:text="${caja != null} ? 'Caja Abierta' : 'Caja Cerrada'">Caja Cerrada</span>
-                </button>
-
-                <div class="topbar-avatar"
-                     th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
-                    CB
-                </div>
-            </div>
+            <div th:replace="~{fragments/topbar :: acciones}"></div>
         </header>
 
         <!-- =========================

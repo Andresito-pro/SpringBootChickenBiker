@@ -1,7 +1,9 @@
 package com.chickenbikerv2.controller.vista;
 
 import com.chickenbikerv2.entity.Roles;
+import com.chickenbikerv2.security.SesionUsuario;
 import com.chickenbikerv2.service.RolesService;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -49,7 +51,8 @@ public class RolesVistaController {
     }
 
     @PostMapping
-    public String guardarRol(@ModelAttribute("rol") Roles rol, RedirectAttributes redirectAttributes) {
+    public String guardarRol(@ModelAttribute("rol") Roles rol, HttpSession session,
+                             RedirectAttributes redirectAttributes) {
         boolean esEdicion = rol.getIdRoles() != null && rol.getIdRoles() > 0;
         String rutaError = esEdicion ? "redirect:/roles/editar/" + rol.getIdRoles() : "redirect:/roles/nuevoRol";
 
@@ -58,6 +61,13 @@ public class RolesVistaController {
             return rutaError;
         }
         rol.setNombreRol(rol.getNombreRol().trim());
+        try {
+            // Evita roles duplicados y el escalamiento de privilegios por nombre de rol
+            rolesService.validarGuardado(rol, SesionUsuario.idRol(session));
+        } catch (IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return rutaError;
+        }
         // descripcion_rol es NOT NULL en la base de datos
         rol.setDescripcionRol(rol.getDescripcionRol() == null ? "" : rol.getDescripcionRol().trim());
 
@@ -73,9 +83,13 @@ public class RolesVistaController {
     }
 
     @PostMapping("/eliminar/{id}")
-    public String eliminarRol(@PathVariable("id") Integer id, RedirectAttributes redirectAttributes) {
+    public String eliminarRol(@PathVariable("id") Integer id, HttpSession session,
+                              RedirectAttributes redirectAttributes) {
         try {
+            rolesService.validarEliminacion(id, SesionUsuario.idRol(session));
             rolesService.eliminar(id);
+        } catch (IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
         } catch (DataIntegrityViolationException e) {
             redirectAttributes.addFlashAttribute("error", "No se puede eliminar este rol porque tiene usuarios o permisos asociados.");
         }

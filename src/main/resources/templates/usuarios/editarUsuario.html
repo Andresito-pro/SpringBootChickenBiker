@@ -44,12 +44,7 @@
                 </div>
             </div>
 
-            <div class="topbar-right">
-                <div class="topbar-avatar"
-                     th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
-                    CB
-                </div>
-            </div>
+            <div th:replace="~{fragments/topbar :: acciones}"></div>
         </header>
 
         <!-- CONTENIDO DE LA VISTA -->

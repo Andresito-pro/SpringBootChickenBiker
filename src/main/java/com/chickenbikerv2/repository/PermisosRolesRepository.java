@@ -16,4 +16,6 @@ public interface PermisosRolesRepository extends JpaRepository<PermisosRoles, Pe
     @Query("SELECT p.nombrePermiso FROM PermisosRoles pr, Permisos p "
             + "WHERE pr.permisosIdPermisos = p.idPermisos AND pr.rolesIdRoles = :idRol")
     List<String> listarNombresPermisosPorRol(@Param("idRol") int idRol);
+
+    List<PermisosRoles> findByRolesIdRoles(int idRol);
 }

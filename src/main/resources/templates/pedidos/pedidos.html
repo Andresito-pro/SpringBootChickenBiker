@@ -36,12 +36,7 @@
                 </div>
             </div>
 
-            <div class="topbar-right">
-                <div class="topbar-avatar"
-                     th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
-                    CB
-                </div>
-            </div>
+            <div th:replace="~{fragments/topbar :: acciones}"></div>
         </header>
 
         <main class="content">
@@ -93,6 +88,7 @@
                             <button type="button" class="pill-btn" data-filter-value="3">Listos <span class="counter" data-filter-counter></span></button>
                             <button type="button" class="pill-btn" data-filter-value="4">Entregados <span class="counter" data-filter-counter></span></button>
                             <button type="button" class="pill-btn" data-filter-value="otro" data-filter-optional>Pagados <span class="counter" data-filter-counter></span></button>
+                            <button type="button" class="pill-btn" data-filter-value="anulado" data-filter-optional>Anulados <span class="counter" data-filter-counter></span></button>
                         </div>
                     </div>
 
@@ -118,8 +114,10 @@
                                 </thead>
                                 <tbody>
                                 <tr th:each="pedido : ${pedidos}"
-                                    th:with="estadoFiltro=${(pedido.estadoPedidoIdEstado >= 1 and pedido.estadoPedidoIdEstado <= 4) ? pedido.estadoPedidoIdEstado : 'otro'},
+                                    th:with="esAnulado=${pedido.estadoPedidoIdEstado == idEstadoAnulado},
+                                             estadoFiltro=${pedido.estadoPedidoIdEstado == idEstadoAnulado ? 'anulado' : ((pedido.estadoPedidoIdEstado >= 1 and pedido.estadoPedidoIdEstado <= 4) ? pedido.estadoPedidoIdEstado : 'otro')},
                                                      pedidoParaLlevar=${pedido.tipoPedido == 'Para llevar' or pedido.mesaIdMesa == null}"
+                                    th:classappend="${esAnulado} ? 'fila-anulada'"
                                     data-filter-item
                                     th:data-tipo="${pedidoParaLlevar ? 'llevar' : 'mesa'}"
                                     th:data-search="${'#' + pedido.idPedidoVenta + ' pedido ' + pedido.idPedidoVenta + ' ' + (pedidoParaLlevar ? 'para llevar' : 'mesa ' + numerosMesa[pedido.mesaIdMesa])}"
@@ -160,17 +158,26 @@
                                     </td>
 
                                     <!-- Estado Dinámico -->
-                                    <td th:switch="${pedido.estadoPedidoIdEstado}">
-                                        <span th:case="1" class="badge-cb badge-cb-warning">Pendiente</span>
-                                        <span th:case="2" class="badge-cb badge-cb-info">En preparación</span>
-                                        <span th:case="3" class="badge-cb badge-cb-success">Listo</span>
-                                        <span th:case="4" class="badge-cb badge-cb-neutral">Entregado</span>
-                                        <span th:case="*" class="badge-cb badge-cb-primary">Pagado</span>
+                                    <td>
+                                        <span th:if="${esAnulado}" class="badge-cb badge-cb-anulado"
+                                              title="Pedido anulado: no cuenta como venta">
+                                            <i class="bi bi-x-circle"></i> Anulado
+                                        </span>
+                                        <th:block th:unless="${esAnulado}" th:switch="${pedido.estadoPedidoIdEstado}">
+                                            <span th:case="1" class="badge-cb badge-cb-warning">Pendiente</span>
+                                            <span th:case="2" class="badge-cb badge-cb-info">En preparación</span>
+                                            <span th:case="3" class="badge-cb badge-cb-success">Listo</span>
+                                            <span th:case="4" class="badge-cb badge-cb-neutral">Entregado</span>
+                                            <span th:case="*" class="badge-cb badge-cb-primary">Pagado</span>
+                                        </th:block>
                                     </td>
 
                                     <!-- Acciones -->
                                     <td class="pe-4 text-end"
-                                        th:with="puedeCobrar=${pedido.estadoPedidoIdEstado == 1 and session.permisosSesion != null and #lists.contains(session.permisosSesion, 'Gestionar caja') and recibosPorPedido[pedido.idPedidoVenta] != null}">
+                                        th:with="reciboPedido=${recibosPorPedido[pedido.idPedidoVenta]},
+                                                 puedeCobrar=${pedido.estadoPedidoIdEstado == 1 and session.permisosSesion != null and #lists.contains(session.permisosSesion, 'Gestionar caja') and recibosPorPedido[pedido.idPedidoVenta] != null},
+                                                 anulablePendiente=${puedeAnular and !esAnulado and pedido.estadoPedidoIdEstado != 4 and (recibosPorPedido[pedido.idPedidoVenta] == null or recibosPorPedido[pedido.idPedidoVenta].estadoReciboIdEstadoRecibo == 1)},
+                                                 anulablePagado=${puedeAnularPagados and !esAnulado and recibosPorPedido[pedido.idPedidoVenta] != null and recibosPorPedido[pedido.idPedidoVenta].estadoReciboIdEstadoRecibo == 2}">
                                         <div class="row-actions">
                                             <a th:href="@{/pedidos/detalle/{id}(id=${pedido.idPedidoVenta})}"
                                                class="btn-cb btn-cb-icon btn-cb-info" title="Ver Detalle">
@@ -185,6 +192,104 @@
                                                     title="Cobrar Pedido">
                                                 <i class="bi bi-credit-card"></i>
                                             </button>
+
+                                            <button th:if="${anulablePendiente}"
+                                                    type="button"
+                                                    class="btn-cb btn-cb-icon btn-cb-danger"
+                                                    data-bs-toggle="modal"
+                                                    th:data-bs-target="'#modalAnular' + ${pedido.idPedidoVenta}"
+                                                    title="Anular pedido">
+                                                <i class="bi bi-x-octagon"></i>
+                                            </button>
+
+                                            <button th:if="${anulablePagado}"
+                                                    type="button"
+                                                    class="btn-cb btn-cb-icon btn-cb-warning"
+                                                    data-bs-toggle="modal"
+                                                    th:data-bs-target="'#modalAnularPagado' + ${pedido.idPedidoVenta}"
+                                                    title="Anular pedido pagado (procedimiento especial)">
+                                                <i class="bi bi-shield-x"></i>
+                                            </button>
+                                        </div>
+
+                                        <!-- Modal: anulación de pedido PENDIENTE -->
+                                        <div th:if="${anulablePendiente}" class="modal fade"
+                                             th:id="'modalAnular' + ${pedido.idPedidoVenta}" tabindex="-1" aria-hidden="true"
+                                             th:attr="aria-labelledby='tituloAnular' + ${pedido.idPedidoVenta}">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content">
+                                                    <form th:action="@{/pedidos/anular/{id}(id=${pedido.idPedidoVenta})}" method="post"
+                                                          class="form-cb text-start" data-texto-carga="Anulando pedido…">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" th:id="'tituloAnular' + ${pedido.idPedidoVenta}"
+                                                                th:text="'Anular pedido #' + ${pedido.idPedidoVenta}">Anular pedido</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <div class="alert alert-cb alert-warning mb-0" role="note">
+                                                                <i class="bi bi-exclamation-triangle-fill alert-cb-icon"></i>
+                                                                <div class="alert-cb-body small">
+                                                                    El pedido quedará en estado <strong>ANULADO</strong>: no se elimina, no cuenta como venta
+                                                                    y, si tiene mesa, la mesa quedará disponible. Esta acción no se puede deshacer.
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer d-flex justify-content-between">
+                                                            <button type="button" class="btn-cb btn-cb-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                            <button type="submit" class="btn-cb btn-cb-danger">
+                                                                <i class="bi bi-x-octagon me-1"></i> Sí, anular pedido
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Modal: procedimiento de anulación de pedido PAGADO -->
+                                        <div th:if="${anulablePagado}" class="modal fade"
+                                             th:id="'modalAnularPagado' + ${pedido.idPedidoVenta}" tabindex="-1" aria-hidden="true"
+                                             th:attr="aria-labelledby='tituloAnularPagado' + ${pedido.idPedidoVenta}">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content">
+                                                    <form th:action="@{/pedidos/anular-pagado/{id}(id=${pedido.idPedidoVenta})}" method="post"
+                                                          class="form-cb text-start" data-texto-carga="Anulando pedido pagado…">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" th:id="'tituloAnularPagado' + ${pedido.idPedidoVenta}"
+                                                                th:text="'Anular pedido pagado #' + ${pedido.idPedidoVenta}">Anular pedido pagado</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <div class="alert alert-cb alert-danger mb-3" role="note">
+                                                                <i class="bi bi-shield-exclamation alert-cb-icon"></i>
+                                                                <div class="alert-cb-body small">
+                                                                    Este pedido <strong>ya fue cobrado</strong>. La anulación:
+                                                                    <ul class="mb-0 ps-3">
+                                                                        <li>solo se permite durante el turno de caja en que se cobró;</li>
+                                                                        <li>cambia el estado del pedido a ANULADO (deja de contar como venta); el recibo y el cobro se conservan;</li>
+                                                                        <li><strong>no</strong> devuelve dinero automáticamente: el cobro se conserva en la caja.
+                                                                            Si entregas dinero al cliente, regístralo como <em>egreso</em> en Movimientos de caja.</li>
+                                                                    </ul>
+                                                                </div>
+                                                            </div>
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="checkbox" name="confirmaProcedimiento" value="true" required
+                                                                       th:id="'confirmaPagado' + ${pedido.idPedidoVenta}">
+                                                                <label class="form-check-label small" th:for="'confirmaPagado' + ${pedido.idPedidoVenta}">
+                                                                    Entiendo que no hay reversión automática y que cualquier devolución se registra aparte.
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer d-flex justify-content-between">
+                                                            <button type="button" class="btn-cb btn-cb-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                            <button type="submit" class="btn-cb btn-cb-danger"
+                                                                    th:attr="data-confirm='¿Confirmas la anulación del pedido pagado #' + ${pedido.idPedidoVenta} + '?'"
+                                                                    data-confirm-titulo="Anular pedido pagado" data-confirm-aceptar="Sí, anular">
+                                                                <i class="bi bi-shield-x me-1"></i> Anular pedido pagado
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <!-- Modal de Cobro -->

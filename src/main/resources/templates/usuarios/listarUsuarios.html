@@ -44,16 +44,7 @@
                 </div>
             </div>
 
-            <div class="topbar-right">
-                <button class="icon-btn" type="button" aria-label="Notificaciones">
-                    <i class="bi bi-bell"></i>
-                    <span class="notif-dot"></span>
-                </button>
-                <div class="topbar-avatar"
-                     th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
-                    CB
-                </div>
-            </div>
+            <div th:replace="~{fragments/topbar :: acciones}"></div>
         </header>
 
         <!-- CONTENIDO DE LA VISTA -->
@@ -197,10 +188,17 @@
                                                           th:text="${mapaRoles[u.rolesIdRoles] ?: 'Rol #' + u.rolesIdRoles}">Rol</span>
                                         </td>
 
-                                        <!-- Vigencia -->
-                                        <td class="text-muted"
-                                            th:text="${u.fechaVencimiento != null ? #temporals.format(u.fechaVencimiento, 'dd/MM/yyyy') : 'Sin fecha'}">
-                                            01/01/2027
+                                        <!-- Vigencia (independiente del estado activo/inactivo) -->
+                                        <td th:with="vig=${vigencias[u.idUsuario]}, dias=${diasRestantes[u.idUsuario]}">
+                                            <span class="d-block text-muted"
+                                                  th:text="${u.fechaVencimiento != null ? #temporals.format(u.fechaVencimiento, 'dd/MM/yyyy') : 'Sin fecha'}">01/01/2027</span>
+                                            <span th:if="${vig == 'vencida'}" class="badge-cb badge-cb-danger"
+                                                  title="No puede iniciar sesión hasta que se renueve la vigencia">
+                                                <i class="bi bi-calendar-x"></i> Vencida
+                                            </span>
+                                            <span th:if="${vig == 'proxima'}" class="badge-cb badge-cb-warning"
+                                                  th:text="${dias == 0} ? 'Vence hoy' : 'Vence en ' + ${dias} + (${dias == 1} ? ' día' : ' días')">Vence pronto</span>
+                                            <span th:if="${vig == 'vigente'}" class="badge-cb badge-cb-success">Vigente</span>
                                         </td>
 
                                         <!-- Estado -->
@@ -222,6 +220,15 @@
                                                    class="btn-cb btn-cb-icon btn-cb-edit" title="Editar">
                                                     <i class="bi bi-pencil-square"></i>
                                                 </a>
+
+                                                <!-- Renovar vigencia (un año) -->
+                                                <form method="post" th:action="@{/usuarios/renovar/{id}(id=${u.idUsuario})}">
+                                                    <button type="submit" class="btn-cb btn-cb-icon btn-cb-info" title="Renovar vigencia un año"
+                                                            th:attr="data-confirm=${vigencias[u.idUsuario] == 'vencida'} ? '¿Renovar la vigencia de ' + ${u.nombreUsuario} + '? Quedará vigente por un año a partir de hoy.' : '¿Renovar la vigencia de ' + ${u.nombreUsuario} + '? Se sumará un año a su fecha de vencimiento actual.'"
+                                                            data-confirm-titulo="Renovar vigencia" data-confirm-aceptar="Renovar" data-confirm-tipo="info">
+                                                        <i class="bi bi-calendar-plus"></i>
+                                                    </button>
+                                                </form>
 
                                                 <!-- Inactivar -->
                                                 <form th:if="${u.estadosUsuariosIdEstadosUsuarios == 1}"

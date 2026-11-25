@@ -27,11 +27,14 @@ public class PagosService {
     private final MetodosPagoRepository metodosPagoRepository;
     private final MovimientosCajaRepository movimientosCajaRepository;
     private final AperturasCierresCajaService aperturasCierresCajaService;
+    private final CatalogoEstadosService catalogoEstadosService;
 
     @Transactional(readOnly = true)
     public List<CabecerasRecibos> listarRecibosPendientes() {
+        // Los pedidos anulados no se cobran: su recibo no aparece como pendiente
         return cabecerasRecibosRepository
-                .findByEstadoReciboIdEstadoReciboOrderByFechaEmisionDesc(PedidosService.ESTADO_RECIBO_GENERADO);
+                .listarPorEstadoSinPedidosAnulados(PedidosService.ESTADO_RECIBO_GENERADO,
+                        catalogoEstadosService.idEstadoPedidoAnuladoOSinDefinir());
     }
 
     /** Métodos de pago activos, sin el placeholder "Pendiente de pago". */
@@ -58,12 +61,17 @@ public class PagosService {
             throw new IllegalStateException("El recibo #" + recibo.getNumeroRecibo() + " ya fue cobrado o anulado.");
         }
 
+        // Bloqueo del pedido (mismo orden que la anulación: caja -> recibo -> pedido)
+        PedidosVentas pedido = pedidosVentasRepository.bloquearPorId(recibo.getPedidoVentaIdPedidoVenta())
+                .orElseThrow(() -> new IllegalStateException("No se encontró el pedido asociado al recibo."));
+        if (pedido.getEstadoPedidoIdEstado() == catalogoEstadosService.idEstadoPedidoAnuladoOSinDefinir()) {
+            throw new IllegalStateException("El pedido #" + pedido.getIdPedidoVenta() + " está anulado y no se puede cobrar.");
+        }
+
         recibo.setMetodoPagoIdMetodoPago(metodo.getIdMetodoPago());
         recibo.setEstadoReciboIdEstadoRecibo(PedidosService.ESTADO_RECIBO_PAGADO);
         recibo = cabecerasRecibosRepository.save(recibo);
 
-        PedidosVentas pedido = pedidosVentasRepository.findById(recibo.getPedidoVentaIdPedidoVenta())
-                .orElseThrow(() -> new IllegalStateException("No se encontró el pedido asociado al recibo."));
         pedido.setEstadoPedidoIdEstado(PedidosService.ESTADO_PEDIDO_ENTREGADO);
         pedidosVentasRepository.save(pedido);
 
@@ -90,6 +98,8 @@ public class PagosService {
         movimiento.setTipoMovimientoIdTipoMovimiento(PedidosService.TIPO_MOVIMIENTO_INGRESO_ID);
         movimiento.setUsuarioIdUsuario(idUsuario);
         movimiento.setAperturaCierreCajaIdAperturaCierreCaja(cajaAbierta.getIdAperturaCierreCaja());
+        // La descripción "Cobro REC-n pedido #m" liga el ingreso a su recibo y, por él, al
+        // medio de pago (el efectivo esperado en caja solo suma los cobros en EFECTIVO).
         movimientosCajaRepository.save(movimiento);
 
         return recibo;

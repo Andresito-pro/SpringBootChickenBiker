@@ -1,7 +1,10 @@
 package com.chickenbikerv2.controller.api;
 
 import com.chickenbikerv2.entity.AperturasCierresCaja;
+import com.chickenbikerv2.entity.Usuarios;
+import com.chickenbikerv2.security.SesionUsuario;
 import com.chickenbikerv2.service.AperturasCierresCajaService;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -40,11 +43,15 @@ public class AperturasCierresCajaController {
     }
 
     @PostMapping("/abrir")
-    public ResponseEntity<?> abrirCaja(@RequestBody AperturaRequest request) {
+    public ResponseEntity<?> abrirCaja(@RequestBody AperturaRequest request, HttpSession session) {
+        Usuarios actor = SesionUsuario.obtener(session);
+        if (actor == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         try {
             AperturasCierresCaja abierta = aperturasCierresCajaService.abrirCaja(
                     request.montoInicial(),
-                    request.idUsuarioApertura()
+                    actor.getIdUsuario() // el responsable es el usuario autenticado, no un id del cliente
             );
             return ResponseEntity.status(HttpStatus.CREATED).body(abierta);
         } catch (IllegalArgumentException e) {
@@ -55,11 +62,15 @@ public class AperturasCierresCajaController {
     }
 
     @PostMapping("/cerrar")
-    public ResponseEntity<?> cerrarCaja(@RequestBody CierreRequest request) {
+    public ResponseEntity<?> cerrarCaja(@RequestBody CierreRequest request, HttpSession session) {
+        Usuarios actor = SesionUsuario.obtener(session);
+        if (actor == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         try {
             AperturasCierresCaja cerrada = aperturasCierresCajaService.cerrarCaja(
                     request.montoFinalReal(),
-                    request.idUsuarioCierre()
+                    actor.getIdUsuario() // el responsable es el usuario autenticado, no un id del cliente
             );
             return ResponseEntity.ok(cerrada);
         } catch (IllegalArgumentException e) {

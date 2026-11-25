@@ -44,16 +44,7 @@
                 </div>
             </div>
 
-            <div class="topbar-right">
-                <button class="icon-btn" type="button" aria-label="Notificaciones">
-                    <i class="bi bi-bell"></i>
-                    <span class="notif-dot"></span>
-                </button>
-                <div class="topbar-avatar"
-                     th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
-                    CB
-                </div>
-            </div>
+            <div th:replace="~{fragments/topbar :: acciones}"></div>
         </header>
 
         <main class="content">

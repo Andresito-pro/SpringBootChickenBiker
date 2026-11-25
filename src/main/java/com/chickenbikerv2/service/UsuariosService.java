@@ -4,6 +4,7 @@ import com.chickenbikerv2.entity.Usuarios;
 import com.chickenbikerv2.repository.UsuariosRepository;
 import com.chickenbikerv2.security.PoliticaContrasena;
 import com.chickenbikerv2.security.UsuarioDetailsService;
+import com.chickenbikerv2.security.VigenciaUsuario;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,10 +20,13 @@ public class UsuariosService {
 
     private final UsuariosRepository usuariosRepository;
     private final PasswordEncoder passwordEncoder;
+    private final VigenciaUsuario vigenciaUsuario;
 
-    public UsuariosService(UsuariosRepository usuariosRepository, PasswordEncoder passwordEncoder) {
+    public UsuariosService(UsuariosRepository usuariosRepository, PasswordEncoder passwordEncoder,
+                           VigenciaUsuario vigenciaUsuario) {
         this.usuariosRepository = usuariosRepository;
         this.passwordEncoder = passwordEncoder;
+        this.vigenciaUsuario = vigenciaUsuario;
     }
 
     public List<Usuarios> listar() {
@@ -75,6 +79,39 @@ public class UsuariosService {
             datos.setPasswordUsuario(passwordEncoder.encode(nueva));
         }
         return usuariosRepository.save(datos);
+    }
+
+    /**
+     * Renovación anual de la vigencia, ejecutada por un administrador
+     * (ruta /usuarios/** restringida a ROLE_Administrador). Es la única
+     * operación que extiende la fecha de vencimiento; nunca ocurre sola.
+     * No cambia el estado Activo/Inactivo.
+     */
+    @Transactional
+    public Usuarios renovarVigencia(int idUsuario) {
+        Usuarios usuario = usuariosRepository.findById(idUsuario)
+                .orElseThrow(() -> new IllegalArgumentException("El usuario seleccionado no existe."));
+        usuario.setFechaVencimiento(vigenciaUsuario.fechaRenovacion(usuario.getFechaVencimiento()));
+        return usuariosRepository.save(usuario);
+    }
+
+    /**
+     * Un usuario no puede cambiar su propio rol ni su propio estado (evita
+     * escalar privilegios o bloquear por error el acceso administrativo).
+     */
+    public void validarCambiosSobreSiMismo(Usuarios datos, int idUsuarioActor) {
+        if (datos.getIdUsuario() <= 0 || datos.getIdUsuario() != idUsuarioActor) {
+            return;
+        }
+        Usuarios actual = usuariosRepository.findById(idUsuarioActor)
+                .orElseThrow(() -> new IllegalArgumentException("El usuario que intentas actualizar no existe."));
+        if (datos.getRolesIdRoles() != actual.getRolesIdRoles()) {
+            throw new IllegalArgumentException("No puedes cambiar tu propio rol.");
+        }
+        if (datos.getEstadosUsuariosIdEstadosUsuarios() != 0
+                && datos.getEstadosUsuariosIdEstadosUsuarios() != actual.getEstadosUsuariosIdEstadosUsuarios()) {
+            throw new IllegalArgumentException("No puedes cambiar el estado de tu propia cuenta.");
+        }
     }
 
     @Transactional

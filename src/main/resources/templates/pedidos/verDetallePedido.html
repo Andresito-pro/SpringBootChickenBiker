@@ -36,15 +36,21 @@
                 </div>
             </div>
 
-            <div class="topbar-right">
-                <div class="topbar-avatar"
-                     th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
-                    CB
-                </div>
-            </div>
+            <div th:replace="~{fragments/topbar :: acciones}"></div>
         </header>
 
         <main class="content" th:with="pedidoParaLlevar=${pedido.tipoPedido == 'Para llevar' or pedido.mesaIdMesa == null}">
+            <!-- Pedido ANULADO (estado del pedido en el catálogo estados_pedidos) -->
+            <div th:if="${pedido.estadoPedidoIdEstado == idEstadoAnulado}" class="alert alert-cb alert-secondary fade-up mb-4" role="note">
+                <i class="bi bi-x-octagon-fill alert-cb-icon"></i>
+                <div class="alert-cb-body">
+                    <strong>Pedido anulado.</strong> Se conserva con su detalle, pero no cuenta como venta.
+                    <div th:if="${recibo != null and recibo.estadoReciboIdEstadoRecibo == 2}" class="small mt-1 text-muted">
+                        Se había cobrado: el cobro se conserva en la caja; cualquier devolución se registra como egreso manual.
+                    </div>
+                </div>
+            </div>
+
             <!-- Información general del pedido -->
             <div class="card-cb fade-up mb-4">
                 <div class="card-cb-header">

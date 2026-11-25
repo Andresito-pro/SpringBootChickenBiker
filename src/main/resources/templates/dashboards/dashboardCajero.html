@@ -48,17 +48,7 @@
                 </div>
             </div>
 
-            <div class="topbar-right">
-                <button class="cash-btn" id="cashToggleBtn" type="button" th:data-open="${caja != null}">
-                    <span class="cash-indicator"></span>
-                    <span class="cash-label" th:text="${caja != null} ? 'Caja Abierta' : 'Caja Cerrada'">Caja Cerrada</span>
-                </button>
-
-                <div class="topbar-avatar"
-                     th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
-                    CB
-                </div>
-            </div>
+            <div th:replace="~{fragments/topbar :: acciones}"></div>
         </header>
 
         <!-- =========================
@@ -139,9 +129,11 @@
                             <div class="kpi-card kpi-ticket">
                                 <div class="kpi-content">
                                     <div class="kpi-icon"><i class="bi bi-calculator"></i></div>
-                                    <div class="kpi-label">Monto esperado en caja</div>
+                                    <div class="kpi-label" title="Solo efectivo: tarjeta y pagos digitales se informan aparte">Efectivo esperado en caja</div>
                                     <p class="kpi-value"
                                        th:text="'$ ' + ${#numbers.formatDecimal(montoEsperado, 1, 'POINT', 0, 'COMMA')}">$ 0</p>
+                                    <small th:if="${resumenCaja != null}" class="text-muted d-block"
+                                           th:text="'Tarjeta y digitales (aparte): $ ' + ${#numbers.formatDecimal(resumenCaja.totalElectronicos(), 1, 'POINT', 0, 'COMMA')}"></small>
                                 </div>
                             </div>
                         </div>

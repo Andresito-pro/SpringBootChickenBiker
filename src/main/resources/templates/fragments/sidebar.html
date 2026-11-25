@@ -94,6 +94,10 @@
                    th:classappend="${menuActivo == 'usuarios'} ? 'active'" data-tooltip="Usuarios">
                     <i class="bi bi-people"></i><span>Usuarios</span>
                 </a>
+                <a th:href="@{/permisos}" class="nav-item"
+                   th:classappend="${menuActivo == 'permisos'} ? 'active'" data-tooltip="Permisos por rol">
+                    <i class="bi bi-key"></i><span>Permisos</span>
+                </a>
             </th:block>
 
             <a th:if="${puedeRoles}" th:href="@{/roles}" class="nav-item"

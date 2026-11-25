@@ -1,7 +1,9 @@
 package com.chickenbikerv2.controller.api;
 
 import com.chickenbikerv2.entity.Usuarios;
+import com.chickenbikerv2.security.SesionUsuario;
 import com.chickenbikerv2.service.UsuariosService;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,8 +34,10 @@ public class UsuariosController {
      * hash BCrypt y nunca se devuelve en la respuesta (WRITE_ONLY en la entidad).
      */
     @PostMapping("/guardar")
-    public ResponseEntity<?> guardar(@RequestBody Usuarios usuarios) {
+    public ResponseEntity<?> guardar(@RequestBody Usuarios usuarios, HttpSession session) {
         try {
+            Usuarios actor = SesionUsuario.obtener(session);
+            usuariosService.validarCambiosSobreSiMismo(usuarios, actor != null ? actor.getIdUsuario() : 0);
             Usuarios guardado = usuarios.getIdUsuario() > 0
                     ? usuariosService.actualizar(usuarios)
                     : usuariosService.crear(usuarios);

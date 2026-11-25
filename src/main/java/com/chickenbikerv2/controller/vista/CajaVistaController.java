@@ -1,5 +1,6 @@
 package com.chickenbikerv2.controller.vista;
 
+import com.chickenbikerv2.dto.ResumenCajaDTO;
 import com.chickenbikerv2.entity.AperturasCierresCaja;
 import com.chickenbikerv2.entity.Usuarios;
 import com.chickenbikerv2.security.SesionUsuario;
@@ -47,10 +48,10 @@ public class CajaVistaController {
 
         model.addAttribute("caja", abierta);
         if (abierta != null) {
-            BigDecimal ingresos = movimientosCajaService.sumarIngresosPorTurno(abierta.getIdAperturaCierreCaja());
-            BigDecimal egresos = movimientosCajaService.sumarEgresosPorTurno(abierta.getIdAperturaCierreCaja());
-            model.addAttribute("totalIngresos", ingresos);
-            model.addAttribute("totalEgresos", egresos);
+            ResumenCajaDTO resumen = aperturasCierresCajaService.calcularResumen(abierta);
+            model.addAttribute("resumen", resumen);
+            model.addAttribute("totalIngresos", resumen.totalIngresos());
+            model.addAttribute("totalEgresos", resumen.egresos());
         }
 
         model.addAttribute("menuActivo", "caja");
@@ -104,14 +105,15 @@ public class CajaVistaController {
         }
 
         AperturasCierresCaja abierta = optAbierta.get();
-        BigDecimal ingresos = movimientosCajaService.sumarIngresosPorTurno(abierta.getIdAperturaCierreCaja());
-        BigDecimal egresos = movimientosCajaService.sumarEgresosPorTurno(abierta.getIdAperturaCierreCaja());
-        BigDecimal montoSistema = aperturasCierresCajaService.calcularMontoSistema(abierta);
+        // Efectivo esperado = inicial + cobros en EFECTIVO + ingresos manuales − egresos.
+        // Tarjeta y plataformas digitales se muestran aparte y no se cuentan como efectivo.
+        ResumenCajaDTO resumen = aperturasCierresCajaService.calcularResumen(abierta);
 
         model.addAttribute("caja", abierta);
-        model.addAttribute("totalIngresos", ingresos);
-        model.addAttribute("totalEgresos", egresos);
-        model.addAttribute("montoSistema", montoSistema);
+        model.addAttribute("resumen", resumen);
+        model.addAttribute("totalIngresos", resumen.totalIngresos());
+        model.addAttribute("totalEgresos", resumen.egresos());
+        model.addAttribute("montoSistema", resumen.efectivoEsperado());
         model.addAttribute("usuarios", usuariosService.listarActivos());
         model.addAttribute("menuActivo", "caja");
         return "caja/cerrarCaja";
@@ -137,7 +139,9 @@ public class CajaVistaController {
             AperturasCierresCaja cerrada = aperturasCierresCajaService.cerrarCaja(montoFinalReal, idUsuarioCierre);
             redirectAttributes.addFlashAttribute("mensaje",
                     "Caja cerrada correctamente por " + optUsuario.get().getNombreUsuario()
-                            + ". Diferencia: $" + cerrada.getDiferencia());
+                            + ". Efectivo esperado: $" + cerrada.getMontoFinalSistema()
+                            + " · Efectivo contado: $" + cerrada.getMontoFinalReal()
+                            + " · Diferencia: $" + cerrada.getDiferencia());
             return "redirect:/caja";
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());

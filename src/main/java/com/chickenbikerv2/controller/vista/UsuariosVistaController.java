@@ -4,6 +4,7 @@ import com.chickenbikerv2.entity.EstadosUsuarios;
 import com.chickenbikerv2.entity.Roles;
 import com.chickenbikerv2.entity.Usuarios;
 import com.chickenbikerv2.security.SesionUsuario;
+import com.chickenbikerv2.security.VigenciaUsuario;
 import com.chickenbikerv2.service.EstadosUsuariosService;
 import com.chickenbikerv2.service.RolesService;
 import com.chickenbikerv2.service.TiposDocumentosService;
@@ -33,15 +34,18 @@ public class UsuariosVistaController {
     private final RolesService rolesService;
     private final TiposDocumentosService tiposDocumentosService;
     private final EstadosUsuariosService estadosUsuariosService;
+    private final VigenciaUsuario vigenciaUsuario;
 
     public UsuariosVistaController(UsuariosService usuariosService,
                                    RolesService rolesService,
                                    TiposDocumentosService tiposDocumentosService,
-                                   EstadosUsuariosService estadosUsuariosService) {
+                                   EstadosUsuariosService estadosUsuariosService,
+                                   VigenciaUsuario vigenciaUsuario) {
         this.usuariosService = usuariosService;
         this.rolesService = rolesService;
         this.tiposDocumentosService = tiposDocumentosService;
         this.estadosUsuariosService = estadosUsuariosService;
+        this.vigenciaUsuario = vigenciaUsuario;
     }
 
     @GetMapping({"", "/listar"})
@@ -64,6 +68,17 @@ public class UsuariosVistaController {
                         (existente, reemplazo) -> existente
                 ));
 
+        // Estado de vigencia de cada cuenta: vencida / proxima (≤ 30 días) / vigente
+        Map<Integer, String> vigencias = listaUsuarios.stream().collect(Collectors.toMap(
+                Usuarios::getIdUsuario,
+                u -> vigenciaUsuario.estaVencida(u) ? "vencida"
+                        : vigenciaUsuario.venceProximamente(u.getFechaVencimiento()) ? "proxima" : "vigente",
+                (a, b) -> a));
+        Map<Integer, Long> diasRestantes = listaUsuarios.stream().collect(Collectors.toMap(
+                Usuarios::getIdUsuario, u -> vigenciaUsuario.diasRestantes(u.getFechaVencimiento()), (a, b) -> a));
+
+        model.addAttribute("vigencias", vigencias);
+        model.addAttribute("diasRestantes", diasRestantes);
         model.addAttribute("listaUsuarios", listaUsuarios);
         model.addAttribute("listaRoles", listaRoles);
         model.addAttribute("mapaRoles", mapaRoles);
@@ -103,6 +118,7 @@ public class UsuariosVistaController {
 
     @PostMapping
     public String guardar(@ModelAttribute("usuario") Usuarios usuario,
+                          HttpSession session,
                           RedirectAttributes redirectAttributes) {
         boolean esEdicion = usuario.getIdUsuario() > 0;
         String rutaError = esEdicion ? "redirect:/usuarios/editar/" + usuario.getIdUsuario() : "redirect:/usuarios/nuevo";
@@ -131,7 +147,23 @@ public class UsuariosVistaController {
             usuario.setEstadosUsuariosIdEstadosUsuarios(UsuariosService.ESTADO_ACTIVO);
         }
         if (usuario.getFechaVencimiento() == null) {
-            usuario.setFechaVencimiento(LocalDate.now().plusYears(1));
+            if (esEdicion) {
+                // Editar NO renueva la vigencia: se conserva la fecha almacenada.
+                // La renovación es una acción explícita (botón "Renovar vigencia").
+                usuario.setFechaVencimiento(usuariosService.buscarPorId(usuario.getIdUsuario())
+                        .map(Usuarios::getFechaVencimiento).orElse(null));
+            }
+            if (usuario.getFechaVencimiento() == null) {
+                usuario.setFechaVencimiento(vigenciaUsuario.vencimientoInicial());
+            }
+        }
+
+        Usuarios actor = SesionUsuario.obtener(session);
+        try {
+            usuariosService.validarCambiosSobreSiMismo(usuario, actor != null ? actor.getIdUsuario() : 0);
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return rutaError;
         }
         if (usuario.getAutorizacionDatos() == null) {
             usuario.setAutorizacionDatos((byte) 0);
@@ -154,6 +186,24 @@ public class UsuariosVistaController {
             return rutaError;
         }
 
+        return "redirect:/usuarios";
+    }
+
+    /**
+     * Renovación anual de la vigencia (solo Administrador: /usuarios/**).
+     * Un año desde hoy o, si la cuenta sigue vigente, desde su vencimiento actual.
+     */
+    @PostMapping("/renovar/{id}")
+    public String renovar(@PathVariable("id") Integer id, RedirectAttributes redirectAttributes) {
+        try {
+            Usuarios renovado = usuariosService.renovarVigencia(id);
+            redirectAttributes.addFlashAttribute("mensaje", "Vigencia de " + renovado.getNombreUsuario() + " "
+                    + renovado.getApellidoUsuario() + " renovada hasta el "
+                    + renovado.getFechaVencimiento().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    + ".");
+        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
         return "redirect:/usuarios";
     }
 
