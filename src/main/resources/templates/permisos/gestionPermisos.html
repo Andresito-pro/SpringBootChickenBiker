@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chicken Biker · Permisos por rol</title>
+
+    <!-- Fuentes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5.3.3 + Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Estilos de Chicken Biker -->
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" th:href="@{/css/ui.css}">
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app-shell">
+
+    <!-- SIDEBAR -->
+    <aside th:replace="~{fragments/sidebar :: sidebar}"></aside>
+
+    <div class="main-content">
+
+        <!-- TOPBAR -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="hamburger" id="hamburgerBtn" type="button" aria-label="Abrir menú">
+                    <i class="bi bi-list"></i>
+                </button>
+                <div class="greeting-block">
+                    <h1>Permisos por rol</h1>
+                    <div class="greeting-meta">
+                        <span>Asigna o revoca el acceso de cada rol a los módulos del sistema</span>
+                    </div>
+                </div>
+            </div>
+
+            <div th:replace="~{fragments/topbar :: acciones}"></div>
+        </header>
+
+        <main class="content">
+            <div class="container-fluid">
+
+                <!-- ALERTAS -->
+                <div th:if="${error != null}" class="alert alert-cb alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-octagon-fill alert-cb-icon"></i>
+                    <div class="alert-cb-body" th:text="${error}"></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+
+                <div th:if="${info != null}" class="alert alert-cb alert-info alert-dismissible fade show" role="alert">
+                    <i class="bi bi-info-circle-fill alert-cb-icon"></i>
+                    <div class="alert-cb-body" th:text="${info}"></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+
+                <div th:if="${mensaje != null}" class="alert alert-cb alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle-fill alert-cb-icon"></i>
+                    <div class="alert-cb-body">
+                        <div th:text="${mensaje}"></div>
+                        <div th:if="${permisosAsignados != null and !#lists.isEmpty(permisosAsignados)}" class="small mt-1">
+                            <i class="bi bi-plus-circle-fill text-success me-1"></i><strong>Asignados:</strong>
+                            <span th:text="${#strings.listJoin(permisosAsignados, ', ')}"></span>
+                        </div>
+                        <div th:if="${permisosRevocados != null and !#lists.isEmpty(permisosRevocados)}" class="small mt-1">
+                            <i class="bi bi-dash-circle-fill text-danger me-1"></i><strong>Revocados:</strong>
+                            <span th:text="${#strings.listJoin(permisosRevocados, ', ')}"></span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="page-header">
+                    <div>
+                        <h2 class="page-header-title">Gestión de permisos</h2>
+                        <p class="page-header-sub">
+                            Los cambios se guardan en la base de datos y se aplican en la siguiente acción de cada usuario,
+                            sin cerrar su sesión. Tu propio rol y el rol Administrador están protegidos.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- PESTAÑAS DE ROLES -->
+                <nav class="roles-tabs" aria-label="Roles">
+                    <a th:each="r : ${roles}"
+                       th:href="@{/permisos(rol=${r.idRol()})}"
+                       class="pill-btn"
+                       th:classappend="${rolSeleccionado != null and rolSeleccionado.idRol() == r.idRol()} ? 'active'"
+                       th:attr="aria-current=${rolSeleccionado != null and rolSeleccionado.idRol() == r.idRol()} ? 'page' : null"
+                       th:title="${r.protegido()} ? ${r.motivoProteccion()} : 'Editar permisos del rol ' + ${r.nombre()}">
+                        <i th:if="${r.protegido()}" class="bi bi-lock-fill me-1" aria-hidden="true"></i>
+                        <span th:text="${r.nombre()}">Rol</span>
+                        <span class="counter" th:text="${r.totalPermisos()}">0</span>
+                    </a>
+                </nav>
+
+                <div th:if="${rolSeleccionado == null}" class="card-cb">
+                    <div class="card-cb-body text-center text-muted py-5">No hay roles registrados.</div>
+                </div>
+
+                <div th:if="${rolSeleccionado != null}" class="card-cb fade-up">
+                    <div class="card-cb-header">
+                        <div>
+                            <h3 th:text="'Rol: ' + ${rolSeleccionado.nombre()}">Rol</h3>
+                            <p>
+                                <span th:text="${rolSeleccionado.descripcion() != null and !#strings.isEmpty(rolSeleccionado.descripcion())} ? ${rolSeleccionado.descripcion()} : 'Sin descripción'"></span>
+                                · <strong th:text="${totalAsignados} + ' de ' + ${totalPermisos}">0 de 0</strong> permisos asignados
+                            </p>
+                        </div>
+                        <span th:if="${rolSeleccionado.protegido()}" class="badge-cb badge-cb-neutral badge-cb-lg">
+                            <i class="bi bi-lock-fill me-1"></i> Solo lectura
+                        </span>
+                    </div>
+
+                    <div class="card-cb-body">
+                        <div th:if="${rolSeleccionado.protegido()}" class="alert alert-cb alert-secondary" role="note">
+                            <i class="bi bi-shield-lock-fill alert-cb-icon"></i>
+                            <div class="alert-cb-body" th:text="${rolSeleccionado.motivoProteccion()}"></div>
+                        </div>
+
+                        <form method="post" th:action="@{/permisos/{id}(id=${rolSeleccionado.idRol()})}"
+                              class="form-cb" data-permisos-form data-texto-carga="Guardando permisos…">
+
+                            <section th:each="grupo : ${permisosPorModulo}" class="permiso-modulo">
+                                <h4 class="permiso-modulo-titulo" th:text="${grupo.key}">Módulo</h4>
+
+                                <label th:each="p : ${grupo.value}" class="permiso-fila"
+                                       th:for="'permiso' + ${p.idPermiso()}">
+                                    <span>
+                                        <span class="permiso-nombre" th:text="${p.nombre()}">Permiso</span>
+                                        <span th:unless="${p.aplicado()}" class="badge-cb badge-cb-neutral ms-1"
+                                              title="Este permiso existe en la base de datos pero la aplicación no lo utiliza">Informativo</span>
+                                        <span th:if="${p.asignado()}" class="badge-cb badge-cb-success ms-1" data-estado-actual>Asignado</span>
+                                        <span th:unless="${p.asignado()}" class="badge-cb badge-cb-neutral ms-1" data-estado-actual>Sin asignar</span>
+                                        <span class="permiso-cambio d-none" data-cambio aria-live="polite"></span>
+                                        <span class="permiso-descripcion" th:text="${p.descripcion()}">Descripción</span>
+                                    </span>
+                                    <span class="form-check form-switch m-0">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                               name="permisos"
+                                               th:id="'permiso' + ${p.idPermiso()}"
+                                               th:value="${p.idPermiso()}"
+                                               th:checked="${p.asignado()}"
+                                               th:disabled="${rolSeleccionado.protegido()}"
+                                               th:attr="data-original=${p.asignado()}">
+                                    </span>
+                                </label>
+                            </section>
+
+                            <div th:unless="${rolSeleccionado.protegido()}"
+                                 class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-4">
+                                <span class="text-muted small" data-resumen-cambios aria-live="polite">Sin cambios pendientes.</span>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn-cb btn-cb-secondary" data-descartar disabled>
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i> Descartar
+                                    </button>
+                                    <button type="submit" class="btn-cb btn-cb-primary" data-guardar disabled
+                                            th:attr="data-confirm='¿Guardar los cambios de permisos del rol ' + ${rolSeleccionado.nombre()} + '? Se aplicarán a todos los usuarios con ese rol en su siguiente acción.'"
+                                            data-confirm-titulo="Guardar permisos"
+                                            data-confirm-aceptar="Guardar cambios"
+                                            data-confirm-tipo="advertencia">
+                                        <i class="bi bi-save me-1"></i> Guardar cambios
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/ui.js}"></script>
+<script th:src="@{/js/common.js}"></script>
+<script th:src="@{/js/permisos.js}"></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Acciones del topbar, COMUNES a todas las vistas internas:
+   - Indicador del estado de la caja (caja 1). Se renderiza con el estado actual
+     (SesionModelAdvice.cajaAbiertaGlobal) y js/topbar.js lo vuelve a consultar
+     en /api/caja/estado (al volver a la pestaña, al restaurar desde caché y cada
+     minuto), así ninguna pantalla muestra un estado desactualizado.
+   - Campana de notificaciones: solo para quien tiene el permiso
+     "Recibir notificaciones" (Administrador y Cajero por defecto). La API
+     /api/notificaciones/** también lo exige en el servidor.
+   - Avatar del usuario.
+-->
+<div class="topbar-right" th:fragment="acciones"
+     th:with="puedeNotificaciones=${permisosSesion != null and permisosSesion.contains('Recibir notificaciones')}">
+
+    <button class="cash-btn" type="button" data-estado-caja
+            th:attr="data-open=${cajaAbiertaGlobal == true},data-url=@{/api/caja/estado}"
+            th:title="${cajaAbiertaGlobal == true} ? 'La caja 1 tiene un turno abierto' : 'No hay un turno de caja abierto'">
+        <span class="cash-indicator" aria-hidden="true"></span>
+        <span class="cash-label" aria-live="polite"
+              th:text="${cajaAbiertaGlobal == true} ? 'Caja Abierta' : 'Caja Cerrada'">Caja Cerrada</span>
+    </button>
+
+    <div th:if="${puedeNotificaciones}" class="notif-wrapper" data-notificaciones
+         th:attr="data-url=@{/api/notificaciones},data-url-pedido=@{/pedidos/detalle/},data-csrf-header=${_csrf != null ? _csrf.headerName : ''},data-csrf-token=${_csrf != null ? _csrf.token : ''}">
+        <button class="icon-btn" type="button" data-notif-toggle
+                aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false" aria-controls="panelNotificaciones">
+            <i class="bi bi-bell" aria-hidden="true"></i>
+            <span class="notif-contador d-none" data-notif-contador aria-hidden="true">0</span>
+            <span class="visually-hidden" data-notif-lector>Sin notificaciones nuevas</span>
+        </button>
+
+        <div class="notif-panel" id="panelNotificaciones" data-notif-panel hidden
+             role="region" aria-label="Notificaciones recientes">
+            <div class="notif-panel-cabecera">
+                <div>
+                    <strong>Notificaciones</strong>
+                    <span class="notif-panel-sub" data-notif-resumen>Sin pendientes</span>
+                </div>
+                <button type="button" class="notif-marcar-todas" data-notif-todas disabled>
+                    <i class="bi bi-check2-all" aria-hidden="true"></i> Marcar todas
+                </button>
+            </div>
+            <ul class="notif-lista" data-notif-lista></ul>
+            <div class="notif-vacio" data-notif-vacio>
+                <i class="bi bi-bell-slash" aria-hidden="true"></i>
+                <span>No tienes notificaciones.</span>
+            </div>
+            <div class="notif-error d-none" data-notif-error>No fue posible cargar las notificaciones.</div>
+        </div>
+    </div>
+
+    <div class="topbar-avatar"
+         th:text="${session.usuarioSesion != null ? #strings.toUpperCase(#strings.substring(session.usuarioSesion.nombreUsuario, 0, 2)) : 'CB'}">
+        CB
+    </div>
+
+    <script th:src="@{/js/topbar.js}" defer></script>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Desglose del turno por tipo de método de pago (ResumenCajaDTO).
+  Solo los cobros en EFECTIVO forman parte del efectivo esperado en la caja
+  física; tarjeta y pagos digitales se informan por separado.
+-->
+<th:block th:fragment="desglose(resumen)" th:if="${resumen != null}">
+    <div class="detail-item">
+        <span class="detail-label"><i class="bi bi-cash text-success"></i> Cobros en efectivo</span>
+        <span class="detail-value">
+            $ <span th:text="${#numbers.formatDecimal(resumen.cobrosEfectivo(), 1, 'COMMA', 2, 'POINT')}">0.00</span>
+        </span>
+    </div>
+    <div class="detail-item">
+        <span class="detail-label"><i class="bi bi-credit-card text-muted"></i> Cobros con tarjeta</span>
+        <span class="detail-value">
+            $ <span th:text="${#numbers.formatDecimal(resumen.cobrosTarjeta(), 1, 'COMMA', 2, 'POINT')}">0.00</span>
+        </span>
+    </div>
+    <div class="detail-item">
+        <span class="detail-label"><i class="bi bi-phone text-muted"></i> Cobros digitales</span>
+        <span class="detail-value">
+            $ <span th:text="${#numbers.formatDecimal(resumen.cobrosDigitales(), 1, 'COMMA', 2, 'POINT')}">0.00</span>
+        </span>
+    </div>
+    <div class="detail-item" th:if="${resumen.ingresosManuales().signum() != 0}">
+        <span class="detail-label"><i class="bi bi-plus-circle text-muted"></i> Ingresos manuales (efectivo)</span>
+        <span class="detail-value">
+            $ <span th:text="${#numbers.formatDecimal(resumen.ingresosManuales(), 1, 'COMMA', 2, 'POINT')}">0.00</span>
+        </span>
+    </div>
+    <div class="detail-item">
+        <span class="detail-label"><i class="bi bi-receipt text-muted"></i> Total cobrado (todos los medios)</span>
+        <span class="detail-value fw-bold">
+            $ <span th:text="${#numbers.formatDecimal(resumen.totalCobros(), 1, 'COMMA', 2, 'POINT')}">0.00</span>
+        </span>
+    </div>
+    <div class="detail-item">
+        <span class="detail-label"><i class="bi bi-bank text-muted"></i> Electrónicos (no entran a la caja física)</span>
+        <span class="detail-value">
+            $ <span th:text="${#numbers.formatDecimal(resumen.totalElectronicos(), 1, 'COMMA', 2, 'POINT')}">0.00</span>
+        </span>
+    </div>
+    <div class="detail-item" th:if="${resumen.cobrosAnulados().signum() != 0}">
+        <span class="detail-label" title="Cobros de pedidos anulados después de pagados. Siguen contando en la caja: cualquier devolución se registra como egreso.">
+            <i class="bi bi-x-octagon text-muted"></i> Incluye cobros de pedidos anulados
+        </span>
+        <span class="detail-value text-muted">
+            $ <span th:text="${#numbers.formatDecimal(resumen.cobrosAnulados(), 1, 'COMMA', 2, 'POINT')}">0.00</span>
+        </span>
+    </div>
+</th:block>
+
+</body>
+</html>
