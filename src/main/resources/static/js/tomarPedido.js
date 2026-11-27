@@ -69,6 +69,14 @@
         var mesaSeleccionada = null;
         var carrito = [];
 
+        // MODO EDICIÓN (/pedidos/editar/{id}): la mesa ya está fija en el
+        // servidor, así que no se pide ni se envía; el carrito arranca con los
+        // productos actuales del pedido (window.ChickenBikerPedidoEdicion).
+        var modoEdicion = form.getAttribute('data-modo') === 'edicion';
+        var mensajeCarritoVacio = modoEdicion
+            ? 'El pedido debe tener al menos un producto.'
+            : 'Seleccione una mesa y agregue productos.';
+
         // "Para llevar" solo existe si la vista trae el selector; sin él, el
         // comportamiento es exactamente el anterior (pedido en mesa).
         function esParaLlevar() {
@@ -81,7 +89,7 @@
         // ======================================================
         function actualizarBotonConfirmar() {
             if (btnConfirmar) {
-                var tieneDestino = esParaLlevar() || !!mesaSeleccionada;
+                var tieneDestino = modoEdicion || esParaLlevar() || !!mesaSeleccionada;
                 btnConfirmar.disabled = !(tieneDestino && carrito.length > 0);
             }
         }
@@ -92,7 +100,7 @@
         function renderCarrito() {
             if (carrito.length === 0) {
                 carritoContainer.innerHTML =
-                    '<p class="text-muted">Seleccione una mesa y agregue productos.</p>';
+                    '<p class="text-muted">' + escapeHtml(mensajeCarritoVacio) + '</p>';
                 if (totalPedido) {
                     totalPedido.textContent = formatearMonto(0);
                 }
@@ -185,7 +193,9 @@
         // ======================================================
         // SELECCIONAR MESA
         // ======================================================
-        var botonesMesa = document.querySelectorAll('.mesa-btn');
+        // Solo los <button>: las mesas ocupadas con pedido editable son enlaces
+        // (<a class="mesa-btn">) a /pedidos/editar/{id} y no se "seleccionan".
+        var botonesMesa = document.querySelectorAll('button.mesa-btn');
 
         function limpiarSeleccionMesa() {
             mesaSeleccionada = null;
@@ -292,7 +302,7 @@
         form.addEventListener('submit', function (evento) {
             // Validaciones locales: se avisan con el modal de advertencia de
             // ui.js (antes window.alert). El pedido no se envía.
-            if (!esParaLlevar() && !mesaSeleccionada) {
+            if (!modoEdicion && !esParaLlevar() && !mesaSeleccionada) {
                 evento.preventDefault();
                 window.ChickenBikerUI.advertencia({
                     titulo: 'Falta la mesa',
@@ -331,6 +341,25 @@
             // El bloqueo del doble envío lo aplica common.js para todos los
             // formularios del sistema.
         });
+
+        if (modoEdicion) {
+            var itemsIniciales = Array.isArray(window.ChickenBikerPedidoEdicion)
+                ? window.ChickenBikerPedidoEdicion : [];
+            itemsIniciales.forEach(function (item) {
+                var precio = parseFloat(item.precio);
+                var cantidad = parseInt(item.cantidad, 10);
+                if (item.id != null && !isNaN(precio) && cantidad > 0) {
+                    carrito.push({
+                        id: String(item.id),
+                        nombre: item.nombre || '',
+                        precio: precio,
+                        cantidad: cantidad
+                    });
+                }
+            });
+            renderCarrito();
+            return;
+        }
 
         renderCarrito();
         // Estado inicial coherente con el radio marcado por el servidor

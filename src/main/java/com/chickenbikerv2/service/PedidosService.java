@@ -21,6 +21,10 @@ import java.util.stream.Collectors;
  *     Pedido para llevar: no se consulta ni se modifica ninguna mesa (mesa NULL).
  *  3. Se guardan el pedido, su detalle (detalles_pedidos_venta), la cabecera del
  *     recibo interno en estado "Generado" asociada al turno de caja, y su cuerpo.
+ *
+ * Mientras el recibo siga "Generado" el pedido se puede editar
+ * ({@link #actualizarPedido}): p. ej. cuando llega otra persona a una mesa ya
+ * ocupada se agregan productos al mismo pedido en lugar de ocupar otra mesa.
  */
 @Service
 @RequiredArgsConstructor
@@ -154,7 +158,9 @@ public class PedidosService {
         resultado.put("nombresProductos", nombresProductos);
         resultado.put("numeroMesa", pedido.getMesaIdMesa() == null ? null
                 : mesasRepository.findById(pedido.getMesaIdMesa()).map(Mesas::getNumeroMesa).orElse(null));
-        resultado.put("idEstadoAnulado", catalogoEstadosService.idEstadoPedidoAnuladoOSinDefinir());
+        int idEstadoAnulado = catalogoEstadosService.idEstadoPedidoAnuladoOSinDefinir();
+        resultado.put("idEstadoAnulado", idEstadoAnulado);
+        resultado.put("editable", esEditable(pedido, recibo, idEstadoAnulado));
         resultado.put("nombresEstadosPedido", catalogoEstadosService.nombresEstadosPedido());
         return resultado;
     }
@@ -175,55 +181,19 @@ public class PedidosService {
                 ? TIPO_PARA_LLEVAR
                 : TIPO_MESA;
 
-        // 2. Productos y cantidades
-        if (productosIds == null || cantidades == null || productosIds.isEmpty()
-                || productosIds.size() != cantidades.size()) {
-            throw new IllegalArgumentException("Debes agregar al menos un producto válido al pedido.");
-        }
+        // 2. Productos y cantidades (todos al precio de venta actual)
+        List<LineaPedido> lineas = calcularLineas(consolidarItems(productosIds, cantidades), Map.of());
+        BigDecimal totalPedido = sumarTotal(lineas);
 
-        // Consolidar cantidades si un mismo producto viene repetido
-        Map<Integer, Integer> itemsConsolidados = new LinkedHashMap<>();
-        for (int i = 0; i < productosIds.size(); i++) {
-            Integer idProd = productosIds.get(i);
-            Integer cant = cantidades.get(i);
-            if (idProd != null && cant != null && cant > 0) {
-                itemsConsolidados.merge(idProd, cant, Integer::sum);
-            }
-        }
-        if (itemsConsolidados.isEmpty()) {
-            throw new IllegalArgumentException("Las cantidades de los productos deben ser mayores a cero.");
-        }
-
-        BigDecimal totalPedido = BigDecimal.ZERO;
         List<DetallesPedidosVenta> lineasPedido = new ArrayList<>();
         List<CuerposRecibos> lineasRecibo = new ArrayList<>();
-
-        for (Map.Entry<Integer, Integer> entry : itemsConsolidados.entrySet()) {
-            int idProducto = entry.getKey();
-            int cantidad = entry.getValue();
-
-            Productos producto = productosRepository.findById(idProducto)
-                    .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado (ID: " + idProducto + ")."));
-            if (producto.getActivoProducto() == null || producto.getActivoProducto() != 1) {
-                throw new IllegalStateException("El producto '" + producto.getNombrePlato() + "' no está disponible.");
-            }
-
-            BigDecimal precioUnitario = producto.getPrecioVenta();
-            BigDecimal subTotal = precioUnitario.multiply(BigDecimal.valueOf(cantidad));
-            totalPedido = totalPedido.add(subTotal);
-
+        for (LineaPedido linea : lineas) {
             DetallesPedidosVenta detalle = new DetallesPedidosVenta();
-            detalle.setProductosIdProductos(producto.getIdProductos());
-            detalle.setCantidad(cantidad);
-            detalle.setPrecioUnitario(precioUnitario);
-            detalle.setSubtotal(subTotal);
+            linea.aplicarA(detalle);
             lineasPedido.add(detalle);
 
             CuerposRecibos cuerpo = new CuerposRecibos();
-            cuerpo.setProductosIdProductos(producto.getIdProductos());
-            cuerpo.setCantidad(cantidad);
-            cuerpo.setPrecioUnitario(precioUnitario);
-            cuerpo.setSubTotal(subTotal);
+            linea.aplicarA(cuerpo);
             lineasRecibo.add(cuerpo);
         }
 
@@ -279,6 +249,283 @@ public class PedidosService {
         // La campana de Administrador / Cajero deriva sus avisos de pedidos_ventas
         // (NotificacionesService): no hay que registrar nada más aquí.
         return pedido;
+    }
+
+    // =====================================================================
+    // EDICIÓN DE PEDIDOS
+    // =====================================================================
+
+    /**
+     * Un pedido se puede editar mientras siga pendiente de cobro: tiene recibo
+     * en estado "Generado", no fue entregado/cobrado y no está anulado.
+     */
+    public static boolean esEditable(PedidosVentas pedido, CabecerasRecibos recibo, int idEstadoAnulado) {
+        return pedido != null
+                && recibo != null
+                && recibo.getEstadoReciboIdEstadoRecibo() == ESTADO_RECIBO_GENERADO
+                && pedido.getEstadoPedidoIdEstado() != ESTADO_PEDIDO_ENTREGADO
+                && pedido.getEstadoPedidoIdEstado() != idEstadoAnulado;
+    }
+
+    /** Ids de los pedidos del listado que todavía se pueden editar. */
+    @Transactional(readOnly = true)
+    public Set<Integer> idsPedidosEditables(Collection<PedidosVentas> pedidos,
+                                            Map<Integer, CabecerasRecibos> recibosPorPedido) {
+        int idAnulado = catalogoEstadosService.idEstadoPedidoAnuladoOSinDefinir();
+        return pedidos.stream()
+                .filter(p -> esEditable(p, recibosPorPedido.get(p.getIdPedidoVenta()), idAnulado))
+                .map(PedidosVentas::getIdPedidoVenta)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Mesa ocupada -> pedido editable que la ocupa, solo con los pedidos que el
+     * usuario puede ver. Permite que "Tomar pedido" ofrezca agregar productos al
+     * pedido activo de la mesa en vez de ocupar otra.
+     */
+    @Transactional(readOnly = true)
+    public Map<Integer, Integer> obtenerPedidosEditablesPorMesa(int idUsuario, boolean verTodos) {
+        int idAnulado = catalogoEstadosService.idEstadoPedidoAnuladoOSinDefinir();
+        Map<Integer, Integer> resultado = new HashMap<>();
+        // Orden ascendente por fecha: si una mesa tuviera varios, gana el más reciente.
+        for (PedidosVentas pedido : pedidosVentasRepository
+                .listarPedidosEnMesaExcluyendoEstados(List.of(ESTADO_PEDIDO_ENTREGADO, idAnulado))) {
+            if (!verTodos && pedido.getUsuarioIdUsuario() != idUsuario) {
+                continue;
+            }
+            CabecerasRecibos recibo = cabecerasRecibosRepository
+                    .findByPedidoVentaIdPedidoVenta(pedido.getIdPedidoVenta()).orElse(null);
+            if (esEditable(pedido, recibo, idAnulado)) {
+                resultado.put(pedido.getMesaIdMesa(), pedido.getIdPedidoVenta());
+            }
+        }
+        return resultado;
+    }
+
+    /**
+     * Datos para el formulario de edición: el pedido, su mesa y sus productos
+     * actuales (con el precio al que se pidieron). Falla si no es visible para
+     * el usuario o si ya no se puede editar.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> obtenerPedidoParaEditar(int idPedido, int idUsuario, boolean verTodos) {
+        PedidosVentas pedido = buscarPedidoVisible(idPedido, idUsuario, verTodos)
+                .orElseThrow(() -> new IllegalArgumentException("El pedido #" + idPedido + " no existe."));
+        CabecerasRecibos recibo = cabecerasRecibosRepository.findByPedidoVentaIdPedidoVenta(idPedido).orElse(null);
+        verificarEditable(pedido, recibo);
+
+        Map<Integer, Productos> productos = productosRepository.findAll().stream()
+                .collect(Collectors.toMap(Productos::getIdProductos, Function.identity(), (a, b) -> a));
+
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (DetallesPedidosVenta detalle : detallesPedidosVentaRepository.findByPedidoVentaIdPedidoVenta(idPedido)) {
+            Productos producto = productos.get(detalle.getProductosIdProductos());
+            Map<String, Object> item = new LinkedHashMap<>();
+            // El id va como texto: el carrito (tomarPedido.js) compara con data-id.
+            item.put("id", String.valueOf(detalle.getProductosIdProductos()));
+            item.put("nombre", producto != null ? producto.getNombrePlato()
+                    : "Producto #" + detalle.getProductosIdProductos());
+            item.put("precio", detalle.getPrecioUnitario().toPlainString());
+            item.put("cantidad", detalle.getCantidad());
+            items.add(item);
+        }
+
+        Map<String, Object> resultado = new HashMap<>();
+        resultado.put("pedido", pedido);
+        resultado.put("items", items);
+        resultado.put("numeroMesa", pedido.getMesaIdMesa() == null ? null
+                : mesasRepository.findById(pedido.getMesaIdMesa()).map(Mesas::getNumeroMesa).orElse(null));
+        return resultado;
+    }
+
+    /**
+     * Reemplaza los productos de un pedido pendiente (agregar, cambiar
+     * cantidades o quitar líneas) y deja sincronizados el detalle del pedido,
+     * el cuerpo del recibo y ambos totales.
+     *
+     * - La mesa y su estado no cambian: el pedido sigue ocupándola.
+     * - Los productos que ya estaban conservan el precio al que se pidieron
+     *   (aunque luego se hayan desactivado); los nuevos toman el precio de
+     *   venta actual y deben estar activos.
+     * - Bloqueos en el mismo orden que el cobro y la anulación
+     *   (caja -> recibo -> pedido) para no cruzarse con ellos.
+     */
+    @Transactional
+    public PedidosVentas actualizarPedido(int idPedido,
+                                          List<Integer> productosIds,
+                                          List<Integer> cantidades,
+                                          int idUsuario,
+                                          boolean verTodos) {
+
+        aperturasCierresCajaService.bloquearYConsultarCajaAbierta()
+                .orElseThrow(() -> new IllegalStateException(
+                        "No hay una caja abierta. Abre la caja antes de modificar un pedido."));
+
+        // Visibilidad primero: si el usuario no puede verlo, se responde como si no existiera.
+        buscarPedidoVisible(idPedido, idUsuario, verTodos)
+                .orElseThrow(() -> new IllegalArgumentException("El pedido #" + idPedido + " no existe."));
+
+        CabecerasRecibos recibo = cabecerasRecibosRepository.findByPedidoVentaIdPedidoVenta(idPedido)
+                .flatMap(r -> cabecerasRecibosRepository.bloquearPorId(r.getIdCabeceraRecibo()))
+                .orElse(null);
+        PedidosVentas pedido = pedidosVentasRepository.bloquearPorId(idPedido)
+                .orElseThrow(() -> new IllegalArgumentException("El pedido #" + idPedido + " no existe."));
+        verificarEditable(pedido, recibo);
+
+        List<DetallesPedidosVenta> detallesActuales =
+                detallesPedidosVentaRepository.findByPedidoVentaIdPedidoVenta(idPedido);
+        List<CuerposRecibos> cuerposActuales =
+                cuerposRecibosRepository.findByCabeceraReciboIdCabeceraRecibo(recibo.getIdCabeceraRecibo());
+
+        Map<Integer, BigDecimal> preciosOriginales = new HashMap<>();
+        for (DetallesPedidosVenta detalle : detallesActuales) {
+            preciosOriginales.putIfAbsent(detalle.getProductosIdProductos(), detalle.getPrecioUnitario());
+        }
+
+        List<LineaPedido> lineas = calcularLineas(consolidarItems(productosIds, cantidades), preciosOriginales);
+        BigDecimal total = sumarTotal(lineas);
+
+        sincronizarDetalles(idPedido, detallesActuales, lineas);
+        sincronizarCuerposRecibo(recibo.getIdCabeceraRecibo(), cuerposActuales, lineas);
+
+        pedido.setTotalPedido(total);
+        recibo.setTotalGeneral(total);
+        cabecerasRecibosRepository.save(recibo);
+        return pedidosVentasRepository.save(pedido);
+    }
+
+    private void verificarEditable(PedidosVentas pedido, CabecerasRecibos recibo) {
+        int idAnulado = catalogoEstadosService.idEstadoPedidoAnuladoOSinDefinir();
+        if (esEditable(pedido, recibo, idAnulado)) {
+            return;
+        }
+        int id = pedido.getIdPedidoVenta();
+        if (pedido.getEstadoPedidoIdEstado() == idAnulado) {
+            throw new IllegalStateException("El pedido #" + id + " está anulado y no se puede modificar.");
+        }
+        if (recibo == null) {
+            throw new IllegalStateException("El pedido #" + id + " no tiene recibo asociado y no se puede modificar.");
+        }
+        throw new IllegalStateException("El pedido #" + id + " ya fue cobrado y no se puede modificar.");
+    }
+
+    /** Reutiliza las filas de los productos que siguen, crea las nuevas y borra las quitadas. */
+    private void sincronizarDetalles(int idPedido, List<DetallesPedidosVenta> actuales, List<LineaPedido> lineas) {
+        Map<Integer, DetallesPedidosVenta> porProducto = new HashMap<>();
+        List<DetallesPedidosVenta> sobrantes = new ArrayList<>();
+        for (DetallesPedidosVenta detalle : actuales) {
+            if (porProducto.putIfAbsent(detalle.getProductosIdProductos(), detalle) != null) {
+                sobrantes.add(detalle); // filas repetidas del mismo producto
+            }
+        }
+        List<DetallesPedidosVenta> aGuardar = new ArrayList<>();
+        for (LineaPedido linea : lineas) {
+            DetallesPedidosVenta detalle = porProducto.remove(linea.idProducto());
+            if (detalle == null) {
+                detalle = new DetallesPedidosVenta();
+                detalle.setPedidoVentaIdPedidoVenta(idPedido);
+            }
+            linea.aplicarA(detalle);
+            aGuardar.add(detalle);
+        }
+        sobrantes.addAll(porProducto.values());
+        detallesPedidosVentaRepository.deleteAll(sobrantes);
+        detallesPedidosVentaRepository.saveAll(aGuardar);
+    }
+
+    private void sincronizarCuerposRecibo(int idRecibo, List<CuerposRecibos> actuales, List<LineaPedido> lineas) {
+        Map<Integer, CuerposRecibos> porProducto = new HashMap<>();
+        List<CuerposRecibos> sobrantes = new ArrayList<>();
+        for (CuerposRecibos cuerpo : actuales) {
+            if (porProducto.putIfAbsent(cuerpo.getProductosIdProductos(), cuerpo) != null) {
+                sobrantes.add(cuerpo);
+            }
+        }
+        List<CuerposRecibos> aGuardar = new ArrayList<>();
+        for (LineaPedido linea : lineas) {
+            CuerposRecibos cuerpo = porProducto.remove(linea.idProducto());
+            if (cuerpo == null) {
+                cuerpo = new CuerposRecibos();
+                cuerpo.setCabeceraReciboIdCabeceraRecibo(idRecibo);
+            }
+            linea.aplicarA(cuerpo);
+            aGuardar.add(cuerpo);
+        }
+        sobrantes.addAll(porProducto.values());
+        cuerposRecibosRepository.deleteAll(sobrantes);
+        cuerposRecibosRepository.saveAll(aGuardar);
+    }
+
+    // =====================================================================
+    // CÁLCULO DE LÍNEAS (compartido por registrar y actualizar)
+    // =====================================================================
+
+    /** Línea ya validada y calculada de un pedido. */
+    private record LineaPedido(int idProducto, int cantidad, BigDecimal precioUnitario, BigDecimal subtotal) {
+
+        void aplicarA(DetallesPedidosVenta detalle) {
+            detalle.setProductosIdProductos(idProducto);
+            detalle.setCantidad(cantidad);
+            detalle.setPrecioUnitario(precioUnitario);
+            detalle.setSubtotal(subtotal);
+        }
+
+        void aplicarA(CuerposRecibos cuerpo) {
+            cuerpo.setProductosIdProductos(idProducto);
+            cuerpo.setCantidad(cantidad);
+            cuerpo.setPrecioUnitario(precioUnitario);
+            cuerpo.setSubTotal(subtotal);
+        }
+    }
+
+    /** Valida las listas recibidas y suma las cantidades de un mismo producto repetido. */
+    private static Map<Integer, Integer> consolidarItems(List<Integer> productosIds, List<Integer> cantidades) {
+        if (productosIds == null || cantidades == null || productosIds.isEmpty()
+                || productosIds.size() != cantidades.size()) {
+            throw new IllegalArgumentException("Debes agregar al menos un producto válido al pedido.");
+        }
+        Map<Integer, Integer> items = new LinkedHashMap<>();
+        for (int i = 0; i < productosIds.size(); i++) {
+            Integer idProd = productosIds.get(i);
+            Integer cant = cantidades.get(i);
+            if (idProd != null && cant != null && cant > 0) {
+                items.merge(idProd, cant, Integer::sum);
+            }
+        }
+        if (items.isEmpty()) {
+            throw new IllegalArgumentException("Las cantidades de los productos deben ser mayores a cero.");
+        }
+        return items;
+    }
+
+    /**
+     * Calcula precio y subtotal de cada producto. Si el producto está en
+     * {@code preciosConservados} (ya estaba en el pedido) se respeta ese precio;
+     * si no, debe existir, estar activo y se usa su precio de venta actual.
+     */
+    private List<LineaPedido> calcularLineas(Map<Integer, Integer> items, Map<Integer, BigDecimal> preciosConservados) {
+        List<LineaPedido> lineas = new ArrayList<>();
+        for (Map.Entry<Integer, Integer> entry : items.entrySet()) {
+            int idProducto = entry.getKey();
+            int cantidad = entry.getValue();
+
+            BigDecimal precioUnitario = preciosConservados.get(idProducto);
+            if (precioUnitario == null) {
+                Productos producto = productosRepository.findById(idProducto)
+                        .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado (ID: " + idProducto + ")."));
+                if (producto.getActivoProducto() == null || producto.getActivoProducto() != 1) {
+                    throw new IllegalStateException("El producto '" + producto.getNombrePlato() + "' no está disponible.");
+                }
+                precioUnitario = producto.getPrecioVenta();
+            }
+            lineas.add(new LineaPedido(idProducto, cantidad, precioUnitario,
+                    precioUnitario.multiply(BigDecimal.valueOf(cantidad))));
+        }
+        return lineas;
+    }
+
+    private static BigDecimal sumarTotal(List<LineaPedido> lineas) {
+        return lineas.stream().map(LineaPedido::subtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private static String mensajeMesaNoDisponible(Mesas mesa) {

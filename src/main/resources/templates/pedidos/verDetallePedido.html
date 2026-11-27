@@ -148,9 +148,13 @@
             </div>
 
             <!-- Botón de retorno -->
-            <div class="mb-4">
+            <div class="mb-4 d-flex flex-wrap gap-2">
                 <a th:href="@{/pedidos}" class="btn-cb btn-cb-secondary btn-cb-lg">
                     <i class="bi bi-arrow-left me-2"></i> Volver al listado
+                </a>
+                <a th:if="${editable}" th:href="@{/pedidos/editar/{id}(id=${pedido.idPedidoVenta})}"
+                   class="btn-cb btn-cb-primary btn-cb-lg">
+                    <i class="bi bi-pencil-square me-2"></i> Editar / agregar productos
                 </a>
             </div>
         </main>

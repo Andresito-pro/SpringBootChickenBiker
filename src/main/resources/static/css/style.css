@@ -2059,6 +2059,17 @@ input.filter-control:focus {
     letter-spacing: .04em;
 }
 
+/* Mesa ocupada con un pedido editable: enlace a /pedidos/editar/{id} */
+a.mesa-btn.mesa-con-pedido {
+    text-decoration: none;
+}
+
+.mesa-accion {
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--red);
+}
+
 .scroll-panel {
     max-height: 500px;
     overflow-y: auto;

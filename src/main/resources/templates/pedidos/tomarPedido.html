@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tomar Pedido - Chicken Biker</title>
+    <title th:text="${modoEdicion} ? 'Editar Pedido - Chicken Biker' : 'Tomar Pedido - Chicken Biker'">Tomar Pedido - Chicken Biker</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,9 +29,9 @@
                     <i class="bi bi-list"></i>
                 </button>
                 <div class="greeting-block">
-                    <h1>Tomar Pedido</h1>
+                    <h1 th:text="${modoEdicion} ? 'Editar Pedido' : 'Tomar Pedido'">Tomar Pedido</h1>
                     <div class="greeting-meta">
-                        <span>Registra un nuevo pedido en mesa o para llevar</span>
+                        <span th:text="${modoEdicion} ? 'Agrega productos o ajusta cantidades del pedido' : 'Registra un nuevo pedido en mesa o para llevar'">Registra un nuevo pedido en mesa o para llevar</span>
                     </div>
                 </div>
             </div>
@@ -41,7 +41,8 @@
 
         <main class="content" th:with="esParaLlevar=${tipoPedidoSeleccionado == TIPO_PARA_LLEVAR}">
             <div class="container-fluid">
-                <h2 class="page-header-title mb-4">Tomar Pedido</h2>
+                <h2 class="page-header-title mb-4"
+                    th:text="${modoEdicion} ? 'Editar Pedido #' + ${pedidoEditado.idPedidoVenta} : 'Tomar Pedido'">Tomar Pedido</h2>
 
                 <!-- MENSAJES -->
                 <div th:if="${error != null}" class="alert alert-cb alert-danger alert-dismissible fade show" role="alert">
@@ -64,8 +65,26 @@
                     </div>
                 </div>
 
+                <!-- MODO EDICIÓN: pedido y mesa fijos -->
+                <div th:if="${modoEdicion}" class="card-cb mb-4 order-type">
+                    <div class="card-cb-body d-flex flex-wrap align-items-center gap-3">
+                        <span class="fw-semibold">
+                            <i class="bi bi-pencil-square me-2"></i>
+                            <th:block th:text="'Editando pedido #' + ${pedidoEditado.idPedidoVenta}"></th:block>
+                        </span>
+                        <span th:if="${numeroMesaEditada != null}" class="table-chip"
+                              th:text="'Mesa ' + ${numeroMesaEditada}"></span>
+                        <span th:unless="${numeroMesaEditada != null}" class="badge-cb badge-cb-info">
+                            <i class="bi bi-bag"></i> Para llevar
+                        </span>
+                        <span class="order-type-hint">
+                            La mesa no cambia. Los productos que ya estaban conservan el precio con el que se pidieron.
+                        </span>
+                    </div>
+                </div>
+
                 <!-- TIPO DE PEDIDO -->
-                <div class="card-cb mb-4 order-type">
+                <div th:unless="${modoEdicion}" class="card-cb mb-4 order-type">
                     <div class="card-cb-body d-flex flex-wrap align-items-center gap-3">
                             <span class="fw-semibold" id="tipoPedidoTitulo">
                                 <i class="bi bi-bag-check me-2"></i>Tipo de pedido
@@ -95,7 +114,7 @@
                 </div>
 
                 <!-- SELECCIÓN DE MESA -->
-                <div class="card-cb mb-4" th:classappend="${esParaLlevar} ? 'd-none'" id="mesaSection">
+                <div th:unless="${modoEdicion}" class="card-cb mb-4" th:classappend="${esParaLlevar} ? 'd-none'" id="mesaSection">
                     <div class="card-cb-header">
                         <h5 class="mb-0">
                             <i class="bi bi-table me-2"></i>
@@ -118,14 +137,26 @@
                                     <span class="mesa-estado">Disponible</span>
                                 </button>
 
-                                <button th:case="2"
-                                        type="button"
-                                        class="mesa-btn mesa-ocupada"
-                                        disabled
-                                        title="Esta mesa tiene un pedido activo">
-                                    <span class="mesa-numero" th:text="'Mesa ' + ${mesa.numeroMesa}"></span>
-                                    <span class="mesa-estado">Ocupada</span>
-                                </button>
+                                <th:block th:case="2"
+                                          th:with="idPedidoMesa=${cajaAbierta ? pedidosEditablesPorMesa[mesa.idMesa] : null}">
+                                    <!-- Ocupada con un pedido que el usuario puede ampliar -->
+                                    <a th:if="${idPedidoMesa != null}"
+                                       th:href="@{/pedidos/editar/{id}(id=${idPedidoMesa})}"
+                                       class="mesa-btn mesa-ocupada mesa-con-pedido"
+                                       th:title="'Agregar productos al pedido #' + ${idPedidoMesa}">
+                                        <span class="mesa-numero" th:text="'Mesa ' + ${mesa.numeroMesa}"></span>
+                                        <span class="mesa-estado">Ocupada</span>
+                                        <span class="mesa-accion"><i class="bi bi-plus-circle"></i> Agregar productos</span>
+                                    </a>
+                                    <button th:unless="${idPedidoMesa != null}"
+                                            type="button"
+                                            class="mesa-btn mesa-ocupada"
+                                            disabled
+                                            title="Esta mesa tiene un pedido activo">
+                                        <span class="mesa-numero" th:text="'Mesa ' + ${mesa.numeroMesa}"></span>
+                                        <span class="mesa-estado">Ocupada</span>
+                                    </button>
+                                </th:block>
 
                                 <button th:case="3"
                                         type="button"
@@ -149,7 +180,9 @@
                     </div>
                 </div>
 
-                <form id="pedidoForm" th:action="@{/pedidos/guardar}" method="post" data-texto-carga="Registrando pedido…">
+                <form id="pedidoForm" th:action="@{${accionFormulario}}" method="post"
+                      th:attr="data-modo=${modoEdicion} ? 'edicion' : 'nuevo',
+                               data-texto-carga=${modoEdicion} ? 'Guardando cambios…' : 'Registrando pedido…'">
                     <input type="hidden" name="mesaId" id="mesaId">
 
                     <div class="row">
@@ -221,12 +254,17 @@
                                 <div class="card-cb-header">
                                     <h5 class="mb-0">
                                         <i class="bi bi-cart3 me-2"></i>
-                                        Pedido Actual
+                                        <th:block th:text="${modoEdicion} ? 'Productos del pedido' : 'Pedido Actual'">Pedido Actual</th:block>
                                     </h5>
                                 </div>
 
                                 <div class="card-cb-body">
-                                    <p class="small text-muted mb-3">
+                                    <p th:if="${modoEdicion}" class="small text-muted mb-3">
+                                        <i class="bi me-1" th:classappend="${numeroMesaEditada != null} ? 'bi-table' : 'bi-bag'"></i>
+                                        <th:block th:text="${numeroMesaEditada != null} ? 'Mesa' : 'Tipo'"></th:block>:
+                                        <strong th:text="${numeroMesaEditada != null} ? 'Mesa ' + ${numeroMesaEditada} : 'Para llevar (sin mesa)'"></strong>
+                                    </p>
+                                    <p th:unless="${modoEdicion}" class="small text-muted mb-3">
                                         <i class="bi me-1" th:classappend="${esParaLlevar} ? 'bi-bag' : 'bi-table'" id="mesaSeleccionadaIcono"></i>
                                         <span id="mesaSeleccionadaTexto" th:text="${esParaLlevar} ? 'Tipo' : 'Mesa seleccionada'"></span>:
                                         <strong id="mesaSeleccionadaLabel" th:text="${esParaLlevar} ? 'Para llevar (sin mesa)' : 'Ninguna'"></strong>
@@ -250,8 +288,13 @@
                                             id="btnConfirmar"
                                             disabled>
                                         <i class="bi bi-check-circle"></i>
-                                        Confirmar Pedido
+                                        <th:block th:text="${modoEdicion} ? 'Guardar cambios' : 'Confirmar Pedido'">Confirmar Pedido</th:block>
                                     </button>
+
+                                    <a th:if="${modoEdicion}" th:href="@{/pedidos}"
+                                       class="btn-cb btn-cb-secondary w-100 mt-2">
+                                        <i class="bi bi-x-circle"></i> Cancelar
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -266,6 +309,10 @@
 <script th:src="@{/js/ui.js}"></script>
 <script th:src="@{/js/common.js}"></script>
 <script th:src="@{/js/filtros.js}"></script>
+<script th:if="${modoEdicion}" th:inline="javascript">
+    // Productos actuales del pedido en edición (los carga tomarPedido.js)
+    window.ChickenBikerPedidoEdicion = /*[[${itemsPedido}]]*/ [];
+</script>
 <script th:src="@{/js/tomarPedido.js}"></script>
 </body>
 </html>

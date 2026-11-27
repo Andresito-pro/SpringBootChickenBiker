@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,6 +47,11 @@ public interface PedidosVentasRepository extends JpaRepository<PedidosVentas, In
     List<PedidosVentas> listarPedidosDeOtrosUsuariosDesde(@Param("desde") LocalDateTime desde,
                                                           @Param("idUsuario") int idUsuario,
                                                           @Param("estadoExcluido") int estadoExcluido);
+
+    /** Pedidos en mesa cuyo estado no está entre los indicados (p. ej. sin Entregado ni Anulado), del más antiguo al más reciente. */
+    @Query("SELECT p FROM PedidosVentas p WHERE p.mesaIdMesa IS NOT NULL "
+            + "AND p.estadoPedidoIdEstado NOT IN :excluidos ORDER BY p.fechaPedido ASC, p.idPedidoVenta ASC")
+    List<PedidosVentas> listarPedidosEnMesaExcluyendoEstados(@Param("excluidos") Collection<Integer> excluidos);
 
     /** Ids de los pedidos en el estado indicado (p. ej. Anulado, para marcar sus recibos). */
     @Query("SELECT p.idPedidoVenta FROM PedidosVentas p WHERE p.estadoPedidoIdEstado = :estado")

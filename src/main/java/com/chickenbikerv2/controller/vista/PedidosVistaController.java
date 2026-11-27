@@ -1,5 +1,6 @@
 package com.chickenbikerv2.controller.vista;
 
+import com.chickenbikerv2.entity.CabecerasRecibos;
 import com.chickenbikerv2.entity.PedidosVentas;
 import com.chickenbikerv2.entity.Usuarios;
 import com.chickenbikerv2.security.PermisosSistema;
@@ -19,6 +20,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -45,8 +47,10 @@ public class PedidosVistaController {
         boolean verTodos = PermisosSistema.tiene(authentication, PermisosSistema.VER_TODOS_LOS_PEDIDOS);
         List<PedidosVentas> pedidos = pedidosService.listarPedidos(usuario.getIdUsuario(), verTodos);
 
+        Map<Integer, CabecerasRecibos> recibosPorPedido = pedidosService.obtenerMapaRecibosPorPedido(pedidos);
         model.addAttribute("pedidos", pedidos);
-        model.addAttribute("recibosPorPedido", pedidosService.obtenerMapaRecibosPorPedido(pedidos));
+        model.addAttribute("recibosPorPedido", recibosPorPedido);
+        model.addAttribute("idsPedidosEditables", pedidosService.idsPedidosEditables(pedidos, recibosPorPedido));
         model.addAttribute("numerosMesa", pedidosService.obtenerMapaNumerosMesa());
         model.addAttribute("metodosPago", pagosService.listarMetodosPagoDisponibles());
         model.addAttribute("idEstadoAnulado", catalogoEstadosService.idEstadoPedidoAnuladoOSinDefinir());
@@ -61,18 +65,22 @@ public class PedidosVistaController {
     @GetMapping({"/tomar", "/nuevo"})
     public String mostrarFormularioTomarPedido(
             @RequestParam(value = "tipoPedido", required = false) String tipoPedido,
+            HttpSession session,
+            Authentication authentication,
             Model model) {
-
-        boolean cajaAbierta = pedidosService.hayCajaAbierta();
-        model.addAttribute("cajaAbierta", cajaAbierta);
-        if (!cajaAbierta) {
-            model.addAttribute("avisoCaja", "La caja se encuentra cerrada.");
+        Usuarios usuario = SesionUsuario.obtener(session);
+        if (usuario == null) {
+            return "redirect:/login";
         }
 
+        agregarDatosFormularioPedido(model);
         model.addAttribute("mesas", pedidosService.listarMesas());
-        model.addAttribute("productos", pedidosService.listarProductosActivos());
-        model.addAttribute("TIPO_MESA", PedidosService.TIPO_MESA);
-        model.addAttribute("TIPO_PARA_LLEVAR", PedidosService.TIPO_PARA_LLEVAR);
+        // Mesas ocupadas cuyo pedido el usuario puede ampliar (en vez de ocupar otra mesa)
+        model.addAttribute("pedidosEditablesPorMesa", pedidosService.obtenerPedidosEditablesPorMesa(
+                usuario.getIdUsuario(),
+                PermisosSistema.tiene(authentication, PermisosSistema.VER_TODOS_LOS_PEDIDOS)));
+        model.addAttribute("modoEdicion", false);
+        model.addAttribute("accionFormulario", "/pedidos/guardar");
         model.addAttribute("menuActivo", "tomarPedido");
 
         if (!model.containsAttribute("tipoPedidoSeleccionado")) {
@@ -117,6 +125,69 @@ public class PedidosVistaController {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             redirectAttributes.addFlashAttribute("tipoPedidoSeleccionado", tipoPedido);
             return "redirect:/pedidos/tomar";
+        }
+    }
+
+    /**
+     * Formulario de edición de un pedido pendiente (mismo formulario de "Tomar
+     * pedido" en modo edición): permite agregar productos, cambiar cantidades o
+     * quitar líneas sin cambiar la mesa.
+     */
+    @GetMapping("/editar/{idPedido}")
+    public String mostrarFormularioEditarPedido(@PathVariable("idPedido") int idPedido,
+                                                HttpSession session,
+                                                Authentication authentication,
+                                                Model model,
+                                                RedirectAttributes redirectAttributes) {
+        Usuarios usuario = SesionUsuario.obtener(session);
+        if (usuario == null) {
+            return "redirect:/login";
+        }
+        try {
+            Map<String, Object> datos = pedidosService.obtenerPedidoParaEditar(idPedido, usuario.getIdUsuario(),
+                    PermisosSistema.tiene(authentication, PermisosSistema.VER_TODOS_LOS_PEDIDOS));
+            PedidosVentas pedido = (PedidosVentas) datos.get("pedido");
+
+            agregarDatosFormularioPedido(model);
+            model.addAttribute("modoEdicion", true);
+            model.addAttribute("pedidoEditado", pedido);
+            model.addAttribute("numeroMesaEditada", datos.get("numeroMesa"));
+            model.addAttribute("itemsPedido", datos.get("items"));
+            model.addAttribute("tipoPedidoSeleccionado", pedido.getTipoPedido());
+            model.addAttribute("accionFormulario", "/pedidos/actualizar/" + idPedido);
+            model.addAttribute("menuActivo", "pedidos");
+            return "pedidos/tomarPedido";
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/pedidos";
+        }
+    }
+
+    @PostMapping("/actualizar/{idPedido}")
+    public String actualizarPedido(@PathVariable("idPedido") int idPedido,
+                                   HttpServletRequest request,
+                                   HttpSession session,
+                                   Authentication authentication,
+                                   RedirectAttributes redirectAttributes) {
+        Usuarios usuario = SesionUsuario.obtener(session);
+        if (usuario == null) {
+            return "redirect:/login";
+        }
+        try {
+            List<Integer> productosIds = extraerEnteros(request, "productoId", "productosId", "idProducto");
+            List<Integer> cantidades = extraerEnteros(request, "cantidad", "cantidades");
+
+            PedidosVentas pedido = pedidosService.actualizarPedido(idPedido, productosIds, cantidades,
+                    usuario.getIdUsuario(),
+                    PermisosSistema.tiene(authentication, PermisosSistema.VER_TODOS_LOS_PEDIDOS));
+
+            redirectAttributes.addFlashAttribute("mensaje", "Pedido #" + pedido.getIdPedidoVenta()
+                    + " actualizado correctamente. Nuevo total: $ " + String.format(Locale.US, "%,.2f", pedido.getTotalPedido()));
+            return "redirect:/pedidos";
+
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/pedidos/editar/" + idPedido;
         }
     }
 
@@ -186,6 +257,18 @@ public class PedidosVistaController {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
         }
         return "redirect:/pedidos";
+    }
+
+    /** Datos comunes del formulario de pedido (nuevo o en edición). */
+    private void agregarDatosFormularioPedido(Model model) {
+        boolean cajaAbierta = pedidosService.hayCajaAbierta();
+        model.addAttribute("cajaAbierta", cajaAbierta);
+        if (!cajaAbierta) {
+            model.addAttribute("avisoCaja", "La caja se encuentra cerrada.");
+        }
+        model.addAttribute("productos", pedidosService.listarProductosActivos());
+        model.addAttribute("TIPO_MESA", PedidosService.TIPO_MESA);
+        model.addAttribute("TIPO_PARA_LLEVAR", PedidosService.TIPO_PARA_LLEVAR);
     }
 
     private List<Integer> extraerEnteros(HttpServletRequest request, String... nombresParametro) {

@@ -184,6 +184,12 @@
                                                 <i class="bi bi-eye"></i>
                                             </a>
 
+                                            <a th:if="${#sets.contains(idsPedidosEditables, pedido.idPedidoVenta)}"
+                                               th:href="@{/pedidos/editar/{id}(id=${pedido.idPedidoVenta})}"
+                                               class="btn-cb btn-cb-icon btn-cb-primary" title="Editar / agregar productos">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </a>
+
                                             <button th:if="${puedeCobrar}"
                                                     type="button"
                                                     class="btn-cb btn-cb-icon btn-cb-success"
